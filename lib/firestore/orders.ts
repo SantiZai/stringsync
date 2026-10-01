@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { boardStatuses } from "@/lib/order-status";
+import { balanceOf } from "@/lib/payments";
 import type { AppUser, Order, OrderStatus, StringingSpec } from "@/types";
 
 const col = collection(db, "orders");
@@ -101,9 +102,23 @@ export async function updateOrderStatus(order: Order, status: OrderStatus, uid: 
   });
 }
 
-export async function markOrderPaid(order: Order) {
-  await updateDoc(doc(db, "orders", order.id), {
-    paymentStatus: "pagado",
-    paidAmount: order.price,
-  });
+// Pedidos con saldo pendiente (incluye los ya entregados)
+export function subscribeOrdersWithBalance(
+  shopId: string,
+  onData: (orders: Order[]) => void
+): Unsubscribe {
+  const q = query(
+    col,
+    where("shopId", "==", shopId),
+    where("paymentStatus", "in", ["pendiente", "sena"])
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list = toOrders(snap).filter((o) => o.status !== "cancelado" && balanceOf(o) > 0);
+      list.sort((a, b) => a.number - b.number);
+      onData(list);
+    },
+    () => onData([])
+  );
 }

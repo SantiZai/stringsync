@@ -9,6 +9,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { useShop } from "@/hooks/use-shop";
 import type { Sport } from "@/types";
 import { PageHeader } from "@/components/page-header";
+import { PaymentMethodsCard } from "@/components/settings/payment-methods-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,7 +66,7 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Configuración" description="Precio de la mano de obra por deporte" />
+      <PageHeader title="Configuración" description="Precios y medios de pago" />
 
       <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -86,6 +87,7 @@ export default function ConfiguracionPage() {
           {saving ? "Guardando…" : "Guardar"}
         </Button>
       </div>
+      <PaymentMethodsCard />
     </div>
   );
 }

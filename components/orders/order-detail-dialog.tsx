@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { WhatsappIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
 import { useShop } from "@/hooks/use-shop";
-import { markOrderPaid, updateOrderStatus } from "@/lib/firestore/orders";
+import { updateOrderStatus } from "@/lib/firestore/orders";
 import { formatDateTime, formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
 import { messages, whatsappLink } from "@/lib/whatsapp";
-import type { Order } from "@/types";
+import { subscribeOrderPayments } from "@/lib/firestore/payments";
+import { balanceOf } from "@/lib/payments";
+import { PaymentDialog } from "@/components/payments/payment-dialog";
+import type { Order, Payment } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -53,15 +57,16 @@ export function OrderDetailDialog({
   const shop = useShop();
   const [confirmCancel, setConfirmCancel] = useState(false);
 
-  async function pay() {
-    if (!order) return;
-    try {
-      await markOrderPaid(order);
-      toast.success("Pedido marcado como pagado");
-    } catch {
-      toast.error("No se pudo actualizar el pago");
-    }
-  }
+  const canManage = appUser?.role === "admin" || appUser?.role === "mostrador";
+  const [payOpen, setPayOpen] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+
+  const orderId = order?.id;
+  useEffect(() => {
+    setPayments([]);
+    if (!appUser || !orderId || !canManage) return;
+    return subscribeOrderPayments(appUser.shopId, orderId, setPayments);
+  }, [appUser, orderId, canManage]);
 
   async function cancel() {
     if (!order || !appUser) return;
@@ -76,7 +81,6 @@ export function OrderDetailDialog({
     }
   }
 
-  const canManage = appUser?.role === "admin" || appUser?.role === "mostrador";
   const shopName = shop?.name ?? "el local";
   const s = order?.spec;
 
@@ -115,6 +119,29 @@ export function OrderDetailDialog({
 
               <Separator />
 
+              {canManage && payments.length > 0 && (
+                <>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium">Cobros</p>
+                    {payments.map((p) => (
+                      <p
+                        key={p.id}
+                        className={cn(
+                          "flex justify-between text-sm text-muted-foreground",
+                          p.voided && "line-through"
+                        )}
+                      >
+                        <span>
+                          {formatDateTime(p.createdAt.toDate())} · {p.method}
+                        </span>
+                        <span>{money(p.amount)}</span>
+                      </p>
+                    ))}
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               <div className="space-y-2">
                 <Row label="Mano de obra">{money(order.laborPrice)}</Row>
                 {order.stringPrice > 0 && <Row label="Cuerda">{money(order.stringPrice)}</Row>}
@@ -122,8 +149,8 @@ export function OrderDetailDialog({
                 <Row label="Pago">
                   {order.paymentStatus === "pagado"
                     ? "Pagado"
-                    : order.paymentStatus === "sena"
-                      ? `Seña ${money(order.paidAmount)}`
+                    : order.paidAmount > 0
+                      ? `Seña ${money(order.paidAmount)} · falta ${money(balanceOf(order))}`
                       : "Pendiente"}
                 </Row>
               </div>
@@ -155,9 +182,9 @@ export function OrderDetailDialog({
                     <HugeiconsIcon icon={WhatsappIcon} size={16} className="mr-2" />
                     WhatsApp
                   </a>
-                  {order.paymentStatus !== "pagado" && order.status !== "cancelado" && (
-                    <Button size="sm" onClick={pay}>
-                      Marcar como pagado
+                  {balanceOf(order) > 0 && order.status !== "cancelado" && (
+                    <Button size="sm" onClick={() => setPayOpen(true)}>
+                      Registrar cobro
                     </Button>
                   )}
                   {!["entregado", "cancelado"].includes(order.status) && (
@@ -183,6 +210,8 @@ export function OrderDetailDialog({
             <AlertDialogTitle>¿Cancelar el pedido #{order?.number}?</AlertDialogTitle>
             <AlertDialogDescription>
               El pedido sale del tablero pero queda registrado en el historial del cliente.
+              {order && order.paidAmount > 0 &&
+                ` Tiene cobros por ${money(order.paidAmount)}: si devolvés el dinero, pedile al administrador que los anule desde Caja.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -191,6 +220,8 @@ export function OrderDetailDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PaymentDialog order={payOpen ? order : null} onClose={() => setPayOpen(false)} />
     </>
   );
 }

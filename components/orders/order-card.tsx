@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { WhatsappIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
@@ -9,18 +10,23 @@ import { useShop } from "@/hooks/use-shop";
 import { updateOrderStatus } from "@/lib/firestore/orders";
 import { formatDay, money } from "@/lib/format";
 import { advanceLabel, isOverdue, nextStatus, statusMeta } from "@/lib/order-status";
+import { balanceOf } from "@/lib/payments";
 import { messages, whatsappLink } from "@/lib/whatsapp";
 import type { Order } from "@/types";
+import { PaymentDialog } from "@/components/payments/payment-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
   const { appUser } = useAuth();
   const shop = useShop();
+  const [payOpen, setPayOpen] = useState(false);
+
   const next = nextStatus[order.status];
   const overdue = isOverdue(order);
   const shopName = shop?.name ?? "el local";
-  const unpaid = order.paymentStatus !== "pagado";
+  const balance = balanceOf(order);
+  const canManage = appUser?.role === "admin" || appUser?.role === "mostrador";
 
   async function advance() {
     if (!next || !appUser) return;
@@ -32,12 +38,18 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
           duration: 10000,
           action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
         });
-      } else if (next === "entregado" && unpaid) {
-        toast.warning(`El pedido #${order.number} se entregó con el pago pendiente`);
+      } else if (next === "entregado" && balance > 0) {
+        toast.warning(`El pedido #${order.number} se entregó con ${money(balance)} sin cobrar`);
       }
     } catch {
       toast.error("No se pudo cambiar el estado");
     }
+  }
+
+  // Al entregar con saldo, primero se ofrece cobrar
+  function onAdvanceClick() {
+    if (next === "entregado" && balance > 0 && canManage) setPayOpen(true);
+    else advance();
   }
 
   return (
@@ -59,13 +71,17 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
             {formatDay(order.promisedDate.toDate())}
           </span>
           <span className="text-muted-foreground">{money(order.price)}</span>
-          {unpaid && <span className="font-medium text-amber-600 dark:text-amber-400">Sin cobrar</span>}
+          {balance > 0 && (
+            <span className="font-medium text-amber-600 dark:text-amber-400">
+              {order.paidAmount > 0 ? `Seña · falta ${money(balance)}` : "Sin cobrar"}
+            </span>
+          )}
         </span>
       </button>
 
       <div className="flex gap-2">
         {next && appUser && (
-          <Button size="sm" className="flex-1" onClick={advance}>
+          <Button size="sm" className="flex-1" onClick={onAdvanceClick}>
             {advanceLabel[order.status]}
           </Button>
         )}
@@ -81,6 +97,15 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
           </a>
         )}
       </div>
+
+      <PaymentDialog
+        order={payOpen ? order : null}
+        onClose={() => setPayOpen(false)}
+        onPaid={(remaining) => {
+          if (remaining <= 0.005) advance();
+        }}
+        extraAction={{ label: "Entregar sin cobrar", onClick: advance }}
+      />
     </div>
   );
 }
