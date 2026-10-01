@@ -16,15 +16,9 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Logo } from "@/components/brand/logo";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { ForgotPasswordDialog } from "@/components/auth/forgot-password-dialog";
 
 const schema = z.object({
   email: z.string().email("Ingresá un email válido"),
@@ -53,6 +47,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { firebaseUser, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const {
     register,
@@ -111,11 +106,25 @@ export default function LoginPage() {
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
 
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => setForgotOpen(true)}
+              >
+                ¿Olvidaste tu contraseña?
+              </Button>
+            </div>
+
             <Button type="submit" size="lg" className="w-full" disabled={submitting}>
               {submitting && <HugeiconsIcon icon={Loading03Icon} size={16} className="mr-2 animate-spin" />}
               Ingresar
             </Button>
           </form>
+
+          <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
         </div>
       </div>
     </main>

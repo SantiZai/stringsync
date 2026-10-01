@@ -80,7 +80,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
       </button>
 
       <div className="flex gap-2">
-        {next && appUser && (
+        {next && appUser && (next !== "entregado" || canManage) && (
           <Button size="sm" className="flex-1" onClick={onAdvanceClick}>
             {advanceLabel[order.status]}
           </Button>

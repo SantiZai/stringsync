@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/brand/logo";
+import { ChangePasswordButton } from "@/components/account/change-password-button";
 
 function useVisibleNav() {
   const { appUser } = useAuth();
@@ -54,6 +55,10 @@ function Sidebar() {
         })}
       </nav>
 
+      <div className="px-3">
+        <ChangePasswordButton label />
+      </div>
+
       <div className="m-3 flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
         <Avatar>
           <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
@@ -79,6 +84,7 @@ function MobileTopBar() {
     <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden">
       <Logo />
       <div className="flex items-center gap-1">
+        <ChangePasswordButton />
         <ThemeToggle />
         <Button variant="ghost" size="icon" aria-label="Cerrar sesión" onClick={logout}>
           <HugeiconsIcon icon={Logout01Icon} size={18} />

@@ -10,6 +10,8 @@ export interface AppUser {
   role: Role;
   name: string;
   email: string;
+  active?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface Customer {

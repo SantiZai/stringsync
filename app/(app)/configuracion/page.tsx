@@ -13,6 +13,9 @@ import { PaymentMethodsCard } from "@/components/settings/payment-methods-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowRight01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 
 const sports: { value: Sport; label: string }[] = [
   { value: "tenis", label: "Tenis" },
@@ -67,6 +70,22 @@ export default function ConfiguracionPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Configuración" description="Precios y medios de pago" />
+
+      <Link
+        href="/configuracion/equipo"
+        className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <HugeiconsIcon icon={UserGroupIcon} size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">Equipo</span>
+          <span className="block text-sm text-muted-foreground">
+            Cuentas de mostrador y encordadores
+          </span>
+        </span>
+        <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-muted-foreground" />
+      </Link>
 
       <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-5">
         <div className="grid gap-4 sm:grid-cols-2">

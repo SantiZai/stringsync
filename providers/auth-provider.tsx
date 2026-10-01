@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import type { AppUser } from "@/types";
 
@@ -26,16 +26,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (user) => {
+    let unsubProfile: (() => void) | undefined;
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      unsubProfile?.();
+      unsubProfile = undefined;
       setFirebaseUser(user);
-      if (user) {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        setAppUser(snap.exists() ? ({ uid: user.uid, ...snap.data() } as AppUser) : null);
-      } else {
+
+      if (!user) {
         setAppUser(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      setLoading(true);
+      unsubProfile = onSnapshot(
+        doc(db, "users", user.uid),
+        (snap) => {
+          setAppUser(snap.exists() ? ({ uid: user.uid, ...snap.data() } as AppUser) : null);
+          setLoading(false);
+        },
+        () => {
+          setAppUser(null);
+          setLoading(false);
+        }
+      );
     });
+
+    return () => {
+      unsubProfile?.();
+      unsubAuth();
+    };
   }, []);
 
   return (

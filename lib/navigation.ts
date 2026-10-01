@@ -28,3 +28,18 @@ export const roleLabels: Record<Role, string> = {
   mostrador: "Mostrador",
   encordador: "Encordador",
 };
+
+// El orden importa: gana la primera coincidencia
+const routeRoles: [string, Role[]][] = [
+  ["/pedidos/nuevo", ["admin", "mostrador"]],
+  ["/pedidos", ["admin", "mostrador", "encordador"]],
+  ["/clientes", ["admin", "mostrador"]],
+  ["/cuerdas", ["admin", "mostrador"]],
+  ["/caja", ["admin", "mostrador"]],
+  ["/configuracion", ["admin"]],
+];
+
+export function canAccess(role: Role, pathname: string): boolean {
+  const match = routeRoles.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
+  return match ? match[1].includes(role) : true;
+}
