@@ -2,7 +2,7 @@ import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase
 import { db } from "@/lib/firebase";
 import type { AppUser } from "@/types";
 
-const order = { admin: 0, mostrador: 1, encordador: 2 };
+const order = { admin: 0, encargado: 1, mostrador: 2, encordador: 3 };
 
 export function subscribeTeam(shopId: string, onData: (members: AppUser[]) => void): Unsubscribe {
   const q = query(collection(db, "users"), where("shopId", "==", shopId));

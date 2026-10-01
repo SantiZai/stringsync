@@ -96,10 +96,11 @@ export interface Order {
   id: string;
   orgId: string;
   shopId: string;
-  number: number; // correlativo por local
+  number: number; // correlativo por sucursal
   customerId: string;
   customerName: string; // desnormalizado para listar rápido
   customerPhone: string;
+  stringId?: string | null; // cuerda del catálogo usada (descuenta stock)
   racketId: string;
   racketLabel: string; // "Babolat Pure Drive"
   spec: StringingSpec;
@@ -145,3 +146,19 @@ export type StringView = StringItem & {
   minStock: number;
   catalogPrice: number; // salePrice pasa a ser el precio efectivo
 };
+
+export interface StockMovement {
+  id: string;
+  orgId: string;
+  shopId: string;
+  stringId: string;
+  stringLabel: string;
+  type: "ingreso" | "ajuste" | "consumo" | "devolucion";
+  quantity: number; // con signo: +5, -1
+  orderId?: string;
+  orderNumber?: number;
+  note?: string;
+  createdAt: Timestamp;
+  createdBy: string;
+  createdByName: string;
+}

@@ -24,6 +24,7 @@ export interface NewOrderInput {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  stringId: string | null
   racketId: string;
   racketLabel: string;
   spec: StringingSpec;
@@ -130,7 +131,7 @@ export async function createOrder(
     });
     return number;
   });
-} s
+}
 
 export async function updateOrderStatus(order: Order, status: OrderStatus, uid: string) {
   await updateDoc(doc(db, "orders", order.id), {

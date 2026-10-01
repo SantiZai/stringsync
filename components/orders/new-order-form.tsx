@@ -11,15 +11,18 @@ import { toast } from "sonner";
 import { useAuth } from "@/providers/auth-provider";
 import { useCustomers } from "@/hooks/use-customers";
 import { useShop } from "@/hooks/use-shop";
+import { useStrings } from "@/hooks/use-strings";
 import { subscribeCustomerRackets } from "@/lib/firestore/rackets";
 import { createOrder } from "@/lib/firestore/orders";
 import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
-import { formatDay, money } from "@/lib/format";
-import { digitsOnly, fold, initials } from "@/lib/text";
+import { formatDay, money, parseAmount } from "@/lib/format";
+import { stringLabel } from "@/lib/strings";
+import { fold, digitsOnly, initials } from "@/lib/text";
 import { messages, whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import type { Racket, StringingSpec } from "@/types";
 
+import { BranchRequired } from "@/components/branch-required";
 import { PageHeader } from "@/components/page-header";
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog";
 import { RacketFormDialog } from "@/components/customers/racket-form-dialog";
@@ -44,12 +47,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BranchRequired } from "../branch-required";
-
-const num = (s: string) => {
-  const n = parseFloat(s.replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-};
 
 const providerLabels = { local: "La pone el local", cliente: "La trae el cliente" } as const;
 
@@ -97,29 +94,39 @@ export function NewOrderForm() {
   const router = useRouter();
   const preselected = useSearchParams().get("cliente");
   const { appUser } = useAuth();
-  const shop = useShop();
+  const shop = useShop(); // sucursal activa (null si el admin está en "Todas")
   const { customers } = useCustomers();
+  const { strings } = useStrings();
 
+  const activeStrings = useMemo(() => strings.filter((s) => s.active), [strings]);
+
+  // Cliente
   const [customerId, setCustomerId] = useState<string | null>(preselected);
   const [search, setSearch] = useState("");
   const [customerDialog, setCustomerDialog] = useState(false);
 
+  // Raqueta
   const [rackets, setRackets] = useState<Racket[]>([]);
   const [racketId, setRacketId] = useState<string | null>(null);
   const [racketDialog, setRacketDialog] = useState(false);
 
+  // Encordado
   const [f, setF] = useState<SpecForm>(emptySpec);
   const patch = (p: Partial<SpecForm>) => setF((prev) => ({ ...prev, ...p }));
+  const [stringId, setStringId] = useState<string | null>(null);
 
+  // Entrega
   const [promised, setPromised] = useState<Date>(() => startOfDay(addDays(new Date(), 1)));
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Precio
   const [labor, setLabor] = useState("");
   const [stringPrice, setStringPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
   const customer = customers.find((c) => c.id === customerId) ?? null;
   const racket = rackets.find((r) => r.id === racketId) ?? null;
+  const catalogString = activeStrings.find((s) => s.id === stringId) ?? null;
 
   // Buscador de clientes
   const matches = useMemo(() => {
@@ -131,16 +138,22 @@ export function NewOrderForm() {
       .slice(0, 5);
   }, [customers, search]);
 
-  // Raquetas del cliente elegido
+  // Raquetas del cliente elegido (compartidas en toda la organización)
   useEffect(() => {
     setRacketId(null);
     setRackets([]);
+    setStringId(null);
     if (!appUser || !customerId) return;
     return subscribeCustomerRackets(appUser.orgId, customerId, setRackets);
   }, [appUser, customerId]);
 
   function pickRacket(r: Racket) {
     const s = r.usualSetup;
+    // Si la cuerda habitual está en el catálogo, se preselecciona con el precio de esta sucursal
+    const match = s
+      ? activeStrings.find((x) => fold(stringLabel(x)) === fold(s.mainString))
+      : undefined;
+
     setRacketId(r.id);
     setF({
       mainString: s?.mainString ?? "",
@@ -154,22 +167,36 @@ export function NewOrderForm() {
       prestretch: s?.prestretch ?? false,
       notes: s?.notes ?? "",
     });
+    setStringId(match?.id ?? null);
+    setStringPrice(match ? String(match.salePrice) : "");
   }
 
-  // Si el cliente tiene una sola raqueta, la elegimos sola
+  function pickCatalogString(value: string) {
+    if (value === "otra") {
+      setStringId(null);
+      return;
+    }
+    const s = activeStrings.find((x) => x.id === value);
+    if (!s) return;
+    setStringId(s.id);
+    patch({ mainString: stringLabel(s) });
+    setStringPrice(String(s.salePrice)); // ya viene con el precio propio de la sucursal, si lo hay
+  }
+
+  // Si el cliente tiene una sola raqueta, se elige sola
   useEffect(() => {
     if (rackets.length === 1 && !racketId) pickRacket(rackets[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rackets]);
 
-  // Mano de obra según el deporte
+  // Mano de obra según el deporte y los precios de la sucursal
   useEffect(() => {
     if (!racket) return;
     const p = shop?.laborPrices?.[racket.sport];
     setLabor(p != null ? String(p) : "");
   }, [racket?.id, racket?.sport, shop?.laborPrices]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const total = num(labor) + (f.provider === "local" ? num(stringPrice) : 0);
+  const total = parseAmount(labor) + (f.provider === "local" ? parseAmount(stringPrice) : 0);
 
   const quickDates = [
     { label: "Hoy", days: 0 },
@@ -181,12 +208,13 @@ export function NewOrderForm() {
   const isQuick = quickDates.some((o) => isSameDay(o.date, promised));
 
   async function submit() {
-    if (!appUser || !customer || !racket) return;
+    if (!appUser || !shop || !customer || !racket) return;
 
-    const mt = num(f.mainTension);
+    const mt = parseAmount(f.mainTension);
     if (!(mt > 0)) return toast.error("Ingresá la tensión principal");
     if (!f.sameCrossString && !f.crossString.trim()) return toast.error("Ingresá la cuerda cruzada");
-    if (!f.sameCrossTension && !(num(f.crossTension) > 0)) return toast.error("Ingresá la tensión cruzada");
+    if (!f.sameCrossTension && !(parseAmount(f.crossTension) > 0))
+      return toast.error("Ingresá la tensión cruzada");
     if (f.provider === "local" && !f.mainString.trim()) return toast.error("Ingresá la cuerda principal");
 
     const main = f.mainString.trim() || "Cuerda del cliente";
@@ -194,7 +222,7 @@ export function NewOrderForm() {
       mainString: main,
       crossString: f.sameCrossString ? main : f.crossString.trim(),
       mainTension: mt,
-      crossTension: f.sameCrossTension ? mt : num(f.crossTension),
+      crossTension: f.sameCrossTension ? mt : parseAmount(f.crossTension),
       tensionUnit: f.unit,
       stringProvidedBy: f.provider,
       prestretch: f.prestretch,
@@ -208,20 +236,17 @@ export function NewOrderForm() {
       racketId: racket.id,
       racketLabel: `${racket.brand} ${racket.model}`,
       spec,
-      laborPrice: num(labor),
-      stringPrice: f.provider === "local" ? num(stringPrice) : 0,
+      stringId: f.provider === "local" ? stringId : null,
+      laborPrice: parseAmount(labor),
+      stringPrice: f.provider === "local" ? parseAmount(stringPrice) : 0,
       price: total,
       promisedDate: promised,
     };
 
     setSaving(true);
     try {
-      // TODO: sacar el !
-      const number = await createOrder(appUser, shop!.id, data);
-      const link = whatsappLink(
-        customer.phone,
-        messages.recibido({ ...data, number }, shop?.name ?? "el local")
-      );
+      const number = await createOrder(appUser, shop.id, data);
+      const link = whatsappLink(customer.phone, messages.recibido({ ...data, number }, shop.name));
       toast.success(`Pedido #${number} creado`, {
         duration: 10000,
         action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
@@ -233,11 +258,12 @@ export function NewOrderForm() {
     }
   }
 
+  // Después de todos los hooks: el admin en "Todas" tiene que elegir una sucursal
   if (!shop) return <BranchRequired action="crear un pedido" />;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <PageHeader title="Nuevo pedido" />
+      <PageHeader title="Nuevo pedido" description={shop.name} />
 
       {/* 1. Cliente */}
       <Section n={1} title="Cliente">
@@ -276,7 +302,7 @@ export function NewOrderForm() {
                       }}
                       className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
                     >
-                      <Avatar size="sm">
+                      <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                           {initials(c.name)}
                         </AvatarFallback>
@@ -336,7 +362,14 @@ export function NewOrderForm() {
         <Section n={3} title="Encordado">
           <div className="space-y-2">
             <Label>Cuerda</Label>
-            <Select value={f.provider} onValueChange={(v) => v && patch({ provider: v as SpecForm["provider"] })}>
+            <Select
+              value={f.provider}
+              onValueChange={(v) => {
+                if (!v) return;
+                patch({ provider: v as SpecForm["provider"] });
+                if (v === "cliente") setStringId(null); // la cuerda del cliente no toca el stock
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue>{providerLabels[f.provider]}</SelectValue>
               </SelectTrigger>
@@ -348,13 +381,45 @@ export function NewOrderForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mainString">Cuerda principal</Label>
-            <Input
-              id="mainString"
-              placeholder={f.provider === "cliente" ? "Opcional" : "Luxilon Alu Power 1.25"}
-              value={f.mainString}
-              onChange={(e) => patch({ mainString: e.target.value })}
-            />
+            {f.provider === "local" && activeStrings.length > 0 && (
+              <div className="space-y-2">
+                <Label>Cuerda del catálogo</Label>
+                <Select value={stringId ?? "otra"} onValueChange={(v) => v && pickCatalogString(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {catalogString ? stringLabel(catalogString) : "Otra (sin control de stock)"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeStrings.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {stringLabel(s)} · {s.stock > 0 ? `${s.stock} en stock` : "sin stock"}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="otra">Otra (sin control de stock)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {catalogString && catalogString.stock <= 0 && (
+                  <p className="text-xs text-destructive">
+                    Esta cuerda figura sin stock en {shop.name}. Si seguís, el stock va a quedar en
+                    negativo hasta que cargues el ingreso.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!catalogString && (
+              <>
+                <Label htmlFor="mainString">Cuerda principal</Label>
+                <Input
+                  id="mainString"
+                  placeholder={f.provider === "cliente" ? "Opcional" : "Luxilon Alu Power 1.25"}
+                  value={f.mainString}
+                  onChange={(e) => patch({ mainString: e.target.value })}
+                />
+              </>
+            )}
+
             <div className="flex items-center gap-2 pt-1">
               <Checkbox
                 id="sameCrossString"
@@ -389,7 +454,10 @@ export function NewOrderForm() {
               </div>
               <div className="space-y-2">
                 <Label>Unidad</Label>
-                <Select value={f.unit} onValueChange={(v) => v && patch({ unit: v as SpecForm["unit"] })}>
+                <Select
+                  value={f.unit}
+                  onValueChange={(v) => v && patch({ unit: v as SpecForm["unit"] })}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue>{f.unit}</SelectValue>
                   </SelectTrigger>
@@ -470,7 +538,8 @@ export function NewOrderForm() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Se la prometemos al cliente para el <span className="font-medium text-foreground">{formatDay(promised)}</span>.
+            Se la prometemos al cliente para el{" "}
+            <span className="font-medium text-foreground">{formatDay(promised)}</span>.
           </p>
         </Section>
       )}
@@ -488,9 +557,10 @@ export function NewOrderForm() {
                 value={labor}
                 onChange={(e) => setLabor(e.target.value)}
               />
-              {!shop?.laborPrices?.[racket.sport] && (
+              {shop.laborPrices?.[racket.sport] == null && (
                 <p className="text-xs text-muted-foreground">
-                  Sin precio configurado para este deporte. El admin puede cargarlo en Configuración.
+                  Sin precio configurado para este deporte. El encargado o el admin puede cargarlo en
+                  Ajustes.
                 </p>
               )}
             </div>
@@ -528,7 +598,11 @@ export function NewOrderForm() {
         onSaved={(id) => setCustomerId(id)}
       />
       {customer && (
-        <RacketFormDialog open={racketDialog} onOpenChange={setRacketDialog} customerId={customer.id} />
+        <RacketFormDialog
+          open={racketDialog}
+          onOpenChange={setRacketDialog}
+          customerId={customer.id}
+        />
       )}
 
       <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
