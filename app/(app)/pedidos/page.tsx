@@ -15,6 +15,7 @@ import { OrderDetailDialog } from "@/components/orders/order-detail-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isStaff } from "@/lib/roles";
 
 function Empty() {
   return (
@@ -33,7 +34,7 @@ export default function PedidosPage() {
   const byStatus = (s: OrderStatus) => orders.filter((o) => o.status === s);
   const overdueCount = orders.filter(isOverdue).length;
   const opened: Order | null = orders.find((o) => o.id === openId) ?? null;
-  const canCreate = appUser?.role === "admin" || appUser?.role === "mostrador";
+  const canCreate = isStaff(appUser?.role);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">

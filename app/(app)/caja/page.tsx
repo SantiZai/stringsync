@@ -30,13 +30,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { isManager, isStaff } from "@/lib/roles";
+import { useScope } from "@/providers/shop-provider";
 
 type Tab = "cobros" | "pendientes";
 
 export default function CajaPage() {
   const { appUser } = useAuth();
-  const shopId = appUser?.shopId;
-  const isAdmin = appUser?.role === "admin";
+  const scope = useScope();
+  const isAdmin = isManager(appUser?.role);
 
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [tab, setTab] = useState<Tab>("cobros");
@@ -52,11 +54,11 @@ export default function CajaPage() {
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
 
   useEffect(() => {
-    if (!shopId) return;
+    if (!scope) return;
     setLoadingPayments(true);
     setPaymentsError(false);
     return subscribePayments(
-      shopId,
+      { orgId: scope.orgId, shopId: scope.shopId },
       day,
       addDays(day, 1),
       (list) => {
@@ -69,15 +71,18 @@ export default function CajaPage() {
         setLoadingPayments(false);
       }
     );
-  }, [shopId, day]);
+  }, [scope?.orgId, scope?.shopId, day]);
 
   useEffect(() => {
-    if (!shopId) return;
-    return subscribeOrdersWithBalance(shopId, (list) => {
-      setPending(list);
-      setLoadingPending(false);
-    });
-  }, [shopId]);
+    if (!scope) return;
+    return subscribeOrdersWithBalance(
+      { orgId: scope.orgId, shopId: scope.shopId },
+      (list) => {
+        setPending(list);
+        setLoadingPending(false);
+      }
+    );
+  }, [scope?.orgId, scope?.shopId]);
 
   const valid = useMemo(() => payments.filter((p) => !p.voided), [payments]);
   const total = valid.reduce((sum, p) => sum + p.amount, 0);
@@ -103,7 +108,7 @@ export default function CajaPage() {
     }
   }
 
-  if (appUser?.role === "encordador") {
+  if (!isStaff(appUser?.role)) {
     return <p className="text-muted-foreground">No tenés permisos para ver esta sección.</p>;
   }
 

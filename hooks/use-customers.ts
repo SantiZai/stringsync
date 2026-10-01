@@ -7,21 +7,21 @@ import type { Customer } from "@/types";
 
 export function useCustomers() {
   const { appUser } = useAuth();
-  const shopId = appUser?.shopId;
+  const orgId = appUser?.orgId;
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!shopId) return;
+    if (!orgId) return;
     return subscribeCustomers(
-      shopId,
+      orgId,
       (list) => {
         setCustomers(list);
         setLoading(false);
       },
       () => setLoading(false)
     );
-  }, [shopId]);
+  }, [orgId]);
 
   return { customers, loading };
 }

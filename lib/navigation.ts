@@ -15,28 +15,34 @@ export interface NavItem {
   roles: Role[];
 }
 
+const ALL: Role[] = ["admin", "encargado", "mostrador", "encordador"];
+const STAFF: Role[] = ["admin", "encargado", "mostrador"];
+const MANAGERS: Role[] = ["admin", "encargado"];
+
 export const navItems: NavItem[] = [
-  { label: "Pedidos", href: "/pedidos", icon: Task01Icon, roles: ["admin", "mostrador", "encordador"] },
-  { label: "Clientes", href: "/clientes", icon: UserGroupIcon, roles: ["admin", "mostrador"] },
-  { label: "Cuerdas", href: "/cuerdas", icon: PackageIcon, roles: ["admin", "mostrador"] },
-  { label: "Caja", href: "/caja", icon: Wallet01Icon, roles: ["admin", "mostrador"] },
-  { label: "Configuración", href: "/configuracion", icon: Settings01Icon, roles: ["admin"] },
+  { label: "Pedidos", href: "/pedidos", icon: Task01Icon, roles: ALL },
+  { label: "Clientes", href: "/clientes", icon: UserGroupIcon, roles: STAFF },
+  { label: "Cuerdas", href: "/cuerdas", icon: PackageIcon, roles: STAFF },
+  { label: "Caja", href: "/caja", icon: Wallet01Icon, roles: STAFF },
+  { label: "Ajustes", href: "/configuracion", icon: Settings01Icon, roles: MANAGERS },
 ];
 
 export const roleLabels: Record<Role, string> = {
   admin: "Administrador",
+  encargado: "Encargado",
   mostrador: "Mostrador",
   encordador: "Encordador",
 };
 
 // El orden importa: gana la primera coincidencia
 const routeRoles: [string, Role[]][] = [
-  ["/pedidos/nuevo", ["admin", "mostrador"]],
-  ["/pedidos", ["admin", "mostrador", "encordador"]],
-  ["/clientes", ["admin", "mostrador"]],
-  ["/cuerdas", ["admin", "mostrador"]],
-  ["/caja", ["admin", "mostrador"]],
-  ["/configuracion", ["admin"]],
+  ["/pedidos/nuevo", STAFF],
+  ["/pedidos", ALL],
+  ["/clientes", STAFF],
+  ["/cuerdas", STAFF],
+  ["/caja", STAFF],
+  ["/configuracion/sucursales", ["admin"]],
+  ["/configuracion", MANAGERS],
 ];
 
 export function canAccess(role: Role, pathname: string): boolean {

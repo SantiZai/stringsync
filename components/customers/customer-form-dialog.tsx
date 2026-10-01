@@ -91,7 +91,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, existing = []
         toast.success("Cliente actualizado");
         onSaved?.(customer.id);
       } else {
-        const id = await createCustomer(appUser.shopId, data);
+        const id = await createCustomer(appUser.orgId, data);
         toast.success("Cliente creado");
         onSaved?.(id);
       }

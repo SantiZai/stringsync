@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { AppUser, Order, Payment } from "@/types";
+import { scopeWhere, type Scope } from "@/lib/scope";
 
 const col = collection(db, "payments");
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -20,7 +21,7 @@ function toPayments(snap: { docs: { id: string; data: () => unknown }[] }): Paym
 
 // Cobros de un rango de fechas (la caja del día)
 export function subscribePayments(
-  shopId: string,
+  scope: Scope,
   from: Date,
   to: Date,
   onData: (payments: Payment[]) => void,
@@ -28,7 +29,7 @@ export function subscribePayments(
 ): Unsubscribe {
   const q = query(
     col,
-    where("shopId", "==", shopId),
+    ...scopeWhere(scope),
     where("createdAt", ">=", Timestamp.fromDate(from)),
     where("createdAt", "<", Timestamp.fromDate(to))
   );
@@ -43,12 +44,19 @@ export function subscribePayments(
   );
 }
 
+// Los cobros de un pedido se consultan con su propia sucursal
 export function subscribeOrderPayments(
+  orgId: string,
   shopId: string,
   orderId: string,
   onData: (payments: Payment[]) => void
 ): Unsubscribe {
-  const q = query(col, where("shopId", "==", shopId), where("orderId", "==", orderId));
+  const q = query(
+    col,
+    where("orgId", "==", orgId),
+    where("shopId", "==", shopId),
+    where("orderId", "==", orderId)
+  );
   return onSnapshot(
     q,
     (snap) => {
@@ -83,7 +91,8 @@ export async function registerPayment(
       paymentStatus: paid >= cur.price ? "pagado" : "sena",
     });
     tx.set(payRef, {
-      shopId: user.shopId,
+      orgId: order.orgId,
+      shopId: order.shopId,
       orderId: order.id,
       orderNumber: order.number,
       customerName: order.customerName,

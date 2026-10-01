@@ -6,7 +6,7 @@ import { WhatsappIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
-import { useShop } from "@/hooks/use-shop";
+import { useShopById } from "@/hooks/use-shop";
 import { updateOrderStatus } from "@/lib/firestore/orders";
 import { formatDateTime, formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { isStaff } from "@/lib/roles";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -54,10 +55,10 @@ export function OrderDetailDialog({
   onClose: () => void;
 }) {
   const { appUser } = useAuth();
-  const shop = useShop();
+  const shop = useShopById(order?.shopId)
   const [confirmCancel, setConfirmCancel] = useState(false);
 
-  const canManage = appUser?.role === "admin" || appUser?.role === "mostrador";
+  const canManage = isStaff(appUser?.role);
   const [payOpen, setPayOpen] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
 
@@ -65,7 +66,7 @@ export function OrderDetailDialog({
   useEffect(() => {
     setPayments([]);
     if (!appUser || !orderId || !canManage) return;
-    return subscribeOrderPayments(appUser.shopId, orderId, setPayments);
+    return subscribeOrderPayments(order.orgId, order.shopId, orderId, setPayments);
   }, [appUser, orderId, canManage]);
 
   async function cancel() {

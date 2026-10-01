@@ -14,6 +14,7 @@ import { fold } from "@/lib/text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BranchRequired } from "../branch-required";
 
 const MAX_METHODS = 12;
 
@@ -46,7 +47,8 @@ export function PaymentMethodsCard() {
     if (!appUser) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, "shops", appUser.shopId), { paymentMethods: methods });
+      //TODO: sacar el !
+      await updateDoc(doc(db, "shops", shop!.id), { paymentMethods: methods });
       toast.success("Medios de pago guardados");
     } catch {
       toast.error("No se pudieron guardar los medios de pago");
@@ -54,6 +56,8 @@ export function PaymentMethodsCard() {
       setSaving(false);
     }
   }
+
+  if (!shop) return <BranchRequired action="crear un pedido" />;
 
   return (
     <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-5">

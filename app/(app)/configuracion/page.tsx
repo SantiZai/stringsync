@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowRight01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { BranchRequired } from "@/components/branch-required";
 
 const sports: { value: Sport; label: string }[] = [
   { value: "tenis", label: "Tenis" },
@@ -58,7 +59,8 @@ export default function ConfiguracionPage() {
     }
     setSaving(true);
     try {
-      await updateDoc(doc(db, "shops", appUser.shopId), { laborPrices });
+      // TODO: sacar el !
+      await updateDoc(doc(db, "shops", shop!.id), { laborPrices });
       toast.success("Precios guardados");
     } catch {
       toast.error("No se pudieron guardar los precios");
@@ -66,6 +68,8 @@ export default function ConfiguracionPage() {
       setSaving(false);
     }
   }
+
+  if (!shop) return <BranchRequired action="crear un pedido" />;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

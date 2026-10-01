@@ -44,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { BranchRequired } from "../branch-required";
 
 const num = (s: string) => {
   const n = parseFloat(s.replace(",", "."));
@@ -135,7 +136,7 @@ export function NewOrderForm() {
     setRacketId(null);
     setRackets([]);
     if (!appUser || !customerId) return;
-    return subscribeCustomerRackets(appUser.shopId, customerId, setRackets);
+    return subscribeCustomerRackets(appUser.orgId, customerId, setRackets);
   }, [appUser, customerId]);
 
   function pickRacket(r: Racket) {
@@ -215,7 +216,8 @@ export function NewOrderForm() {
 
     setSaving(true);
     try {
-      const number = await createOrder(appUser, data);
+      // TODO: sacar el !
+      const number = await createOrder(appUser, shop!.id, data);
       const link = whatsappLink(
         customer.phone,
         messages.recibido({ ...data, number }, shop?.name ?? "el local")
@@ -230,6 +232,8 @@ export function NewOrderForm() {
       setSaving(false);
     }
   }
+
+  if (!shop) return <BranchRequired action="crear un pedido" />;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">

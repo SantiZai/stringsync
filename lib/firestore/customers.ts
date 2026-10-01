@@ -23,20 +23,29 @@ export interface CustomerInput {
 }
 
 export function subscribeCustomers(
-  shopId: string,
+  orgId: string,
   onData: (customers: Customer[]) => void,
   onError?: (e: Error) => void
 ): Unsubscribe {
-  // La query DEBE incluir el where de shopId, si no las reglas la rechazan
-  const q = query(col, where("shopId", "==", shopId));
+  const q = query(col, where("orgId", "==", orgId));
+
   return onSnapshot(
     q,
-    (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Customer);
-      list.sort((a, b) => a.name.localeCompare(b.name, "es"));
-      onData(list);
+    (snapshot) => {
+      const customers = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as Customer[];
+      onData(customers);
     },
-    onError
+    (error) => {
+      if (onError) {
+        onError(error);
+      } else {
+        // En caso de error de permisos o desconexión, envía lista vacía
+        onData([]);
+      }
+    }
   );
 }
 
@@ -52,12 +61,8 @@ export function subscribeCustomer(
   );
 }
 
-export async function createCustomer(shopId: string, input: CustomerInput): Promise<string> {
-  const ref = await addDoc(col, {
-    ...input,
-    shopId,
-    createdAt: serverTimestamp(),
-  });
+export async function createCustomer(orgId: string, input: CustomerInput): Promise<string> {
+  const ref = await addDoc(col, { ...input, orgId, createdAt: serverTimestamp() });
   return ref.id;
 }
 

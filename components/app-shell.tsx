@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/brand/logo";
 import { ChangePasswordButton } from "@/components/account/change-password-button";
+import { BranchSwitcher } from "@/components/branch-switcher";
 
 function useVisibleNav() {
   const { appUser } = useAuth();
@@ -32,6 +33,10 @@ function Sidebar() {
     <div className="flex h-full flex-col">
       <div className="px-5 py-6">
         <Logo />
+      </div>
+
+      <div className="px-3 pb-3">
+        <BranchSwitcher />
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
@@ -140,6 +145,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="min-w-0 flex-1">
         <MobileTopBar />
+        <div className="border-b bg-background px-4 py-2 md:hidden">
+          <BranchSwitcher />
+        </div>
         <main className="animate-in fade-in-0 duration-300 p-4 pb-28 md:p-8 md:pb-8">
           {children}
         </main>

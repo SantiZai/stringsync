@@ -39,6 +39,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { isManager } from "@/lib/roles";
+import { useScope } from "@/providers/shop-provider";
 
 const sportLabels: Record<Racket["sport"], string> = {
   tenis: "Tenis",
@@ -62,21 +64,21 @@ export default function ClienteDetallePage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
 
-
-  const shopId = appUser?.shopId;
-  const isAdmin = appUser?.role === "admin";
+  const orgId = appUser?.orgId;
+  const scopeShopId = useScope()?.shopId ?? null;
+  const isAdmin = isManager(appUser?.role);
 
   useEffect(() => {
-    if (!shopId) return;
-    return subscribeCustomerOrders(shopId, id, setOrders);
-  }, [shopId, id]);
+    if (!orgId) return;
+    return subscribeCustomerOrders({ orgId, shopId: scopeShopId }, id, setOrders);
+  }, [orgId, scopeShopId, id]);
 
   useEffect(() => subscribeCustomer(id, setCustomer), [id]);
 
   useEffect(() => {
-    if (!shopId) return;
-    return subscribeCustomerRackets(shopId, id, setRackets);
-  }, [shopId, id]);
+    if (!orgId) return;
+    return subscribeCustomerRackets(orgId, id, setRackets);
+  }, [orgId, id]);
 
   function openNewRacket() {
     setEditingRacket(undefined);

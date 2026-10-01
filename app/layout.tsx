@@ -6,6 +6,7 @@ import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { ShopProvider } from "@/providers/shop-provider";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={geist.className}>
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <ShopProvider>
+              {children}
+            </ShopProvider>
             <Toaster richColors position="top-center" />
           </AuthProvider>
         </ThemeProvider>

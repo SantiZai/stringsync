@@ -22,11 +22,11 @@ export interface RacketInput {
 }
 
 export function subscribeCustomerRackets(
-  shopId: string,
+  orgId: string,
   customerId: string,
   onData: (rackets: Racket[]) => void
 ): Unsubscribe {
-  const q = query(col, where("shopId", "==", shopId), where("customerId", "==", customerId));
+  const q = query(col, where("orgId", "==", orgId), where("customerId", "==", customerId));
   return onSnapshot(
     q,
     (snap) => {
@@ -38,8 +38,8 @@ export function subscribeCustomerRackets(
   );
 }
 
-export async function createRacket(shopId: string, customerId: string, input: RacketInput) {
-  await addDoc(col, { ...input, shopId, customerId });
+export async function createRacket(orgId: string, customerId: string, input: RacketInput) {
+  await addDoc(col, { ...input, orgId, customerId });
 }
 
 export async function updateRacket(id: string, input: RacketInput) {

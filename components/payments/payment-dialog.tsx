@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
-import { useShop } from "@/hooks/use-shop";
+import { useShopById } from "@/hooks/use-shop";
 import { registerPayment } from "@/lib/firestore/payments";
 import { money, parseAmount } from "@/lib/format";
 import { balanceOf, paymentMethodsOf } from "@/lib/payments";
@@ -37,7 +37,7 @@ interface Props {
 
 export function PaymentDialog({ order, onClose, onPaid, extraAction }: Props) {
   const { appUser } = useAuth();
-  const shop = useShop();
+  const shop = useShopById(order?.shopId);
   const methods = paymentMethodsOf(shop);
 
   const [amount, setAmount] = useState("");

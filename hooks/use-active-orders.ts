@@ -1,23 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/providers/auth-provider";
+import { useScope } from "@/providers/shop-provider";
 import { subscribeActiveOrders } from "@/lib/firestore/orders";
 import type { Order } from "@/types";
 
 export function useActiveOrders() {
-  const { appUser } = useAuth();
-  const shopId = appUser?.shopId;
+  const scope = useScope();
+  const orgId = scope?.orgId;
+  const shopId = scope?.shopId ?? null;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!shopId) return;
-    return subscribeActiveOrders(shopId, (list) => {
+    if (!orgId) return;
+    setLoading(true);
+    return subscribeActiveOrders({ orgId, shopId }, (list) => {
       setOrders(list);
       setLoading(false);
     });
-  }, [shopId]);
+  }, [orgId, shopId]);
 
   return { orders, loading };
 }

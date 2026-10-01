@@ -13,7 +13,10 @@ import {
 import { db } from "@/lib/firebase";
 import { boardStatuses } from "@/lib/order-status";
 import { balanceOf } from "@/lib/payments";
-import type { AppUser, Order, OrderStatus, StringingSpec } from "@/types";
+import type { AppUser, Order, OrderStatus, StringingSpec, StringItem, StringStock } from "@/types";
+import { scopeWhere, type Scope } from "@/lib/scope";
+import { DEFAULT_MIN_STOCK } from "@/lib/constants";
+import { movementData, stockDocId } from "@/lib/firestore/strings";
 
 const col = collection(db, "orders");
 
@@ -35,11 +38,8 @@ function toOrders(snap: { docs: { id: string; data: () => unknown }[] }): Order[
 }
 
 // Pedidos en curso (los que se ven en el tablero)
-export function subscribeActiveOrders(
-  shopId: string,
-  onData: (orders: Order[]) => void
-): Unsubscribe {
-  const q = query(col, where("shopId", "==", shopId), where("status", "in", boardStatuses));
+export function subscribeActiveOrders(scope: Scope, onData: (orders: Order[]) => void): Unsubscribe {
+  const q = query(col, ...scopeWhere(scope), where("status", "in", boardStatuses));
   return onSnapshot(
     q,
     (snap) => {
@@ -52,11 +52,11 @@ export function subscribeActiveOrders(
 }
 
 export function subscribeCustomerOrders(
-  shopId: string,
+  scope: Scope,
   customerId: string,
   onData: (orders: Order[]) => void
 ): Unsubscribe {
-  const q = query(col, where("shopId", "==", shopId), where("customerId", "==", customerId));
+  const q = query(col, ...scopeWhere(scope), where("customerId", "==", customerId));
   return onSnapshot(
     q,
     (snap) => {
@@ -68,21 +68,58 @@ export function subscribeCustomerOrders(
   );
 }
 
-// Número correlativo por local, dentro de una transacción para que nunca se repita
-export async function createOrder(user: AppUser, input: NewOrderInput): Promise<number> {
-  const counterRef = doc(db, "counters", user.shopId);
+// Número correlativo por sucursal + descuento de stock de esa sucursal
+export async function createOrder(
+  user: AppUser,
+  shopId: string,
+  input: NewOrderInput
+): Promise<number> {
+  const counterRef = doc(db, "counters", shopId);
   const orderRef = doc(col);
+  const stringRef = input.stringId ? doc(db, "strings", input.stringId) : null;
+  const stockRef = input.stringId ? doc(db, "stringStock", stockDocId(shopId, input.stringId)) : null;
 
   return runTransaction(db, async (tx) => {
+    // Todas las lecturas van antes que las escrituras
     const counter = await tx.get(counterRef);
+    const stringSnap = stringRef ? await tx.get(stringRef) : null;
+    const stockSnap = stockRef ? await tx.get(stockRef) : null;
+
     const number = (counter.exists() ? (counter.data().orders as number) : 0) + 1;
     const now = Timestamp.now();
 
-    tx.set(counterRef, { shopId: user.shopId, orders: number });
+    let stringId: string | null = null;
+    if (stringRef && stockRef && stringSnap?.exists()) {
+      const item = { id: stringRef.id, ...(stringSnap.data() as Omit<StringItem, "id">) };
+      stringId = item.id;
+
+      if (stockSnap?.exists()) {
+        tx.update(stockRef, { stock: (stockSnap.data() as StringStock).stock - 1 });
+      } else {
+        tx.set(stockRef, {
+          orgId: user.orgId,
+          shopId,
+          stringId: item.id,
+          stock: -1,
+          minStock: DEFAULT_MIN_STOCK,
+        });
+      }
+      tx.set(
+        doc(collection(db, "stockMovements")),
+        movementData(user, item, shopId, "consumo", -1, {
+          orderId: orderRef.id,
+          orderNumber: number,
+        })
+      );
+    }
+
+    tx.set(counterRef, { orgId: user.orgId, shopId, orders: number });
     tx.set(orderRef, {
       ...input,
+      stringId,
       promisedDate: Timestamp.fromDate(input.promisedDate),
-      shopId: user.shopId,
+      orgId: user.orgId,
+      shopId,
       number,
       status: "recibido",
       paymentStatus: "pendiente",
@@ -93,7 +130,7 @@ export async function createOrder(user: AppUser, input: NewOrderInput): Promise<
     });
     return number;
   });
-}
+} s
 
 export async function updateOrderStatus(order: Order, status: OrderStatus, uid: string) {
   await updateDoc(doc(db, "orders", order.id), {
@@ -104,14 +141,10 @@ export async function updateOrderStatus(order: Order, status: OrderStatus, uid: 
 
 // Pedidos con saldo pendiente (incluye los ya entregados)
 export function subscribeOrdersWithBalance(
-  shopId: string,
+  scope: Scope,
   onData: (orders: Order[]) => void
 ): Unsubscribe {
-  const q = query(
-    col,
-    where("shopId", "==", shopId),
-    where("paymentStatus", "in", ["pendiente", "sena"])
-  );
+  const q = query(col, ...scopeWhere(scope), where("paymentStatus", "in", ["pendiente", "sena"]));
   return onSnapshot(
     q,
     (snap) => {
@@ -121,4 +154,48 @@ export function subscribeOrdersWithBalance(
     },
     () => onData([])
   );
+}
+
+// Cancela el pedido y devuelve la cuerda al stock de SU sucursal
+export async function cancelOrder(user: AppUser, order: Order) {
+  const orderRef = doc(db, "orders", order.id);
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists()) throw new Error("not-found");
+    const cur = snap.data() as Order;
+    if (cur.status === "cancelado" || cur.status === "entregado") throw new Error("invalid-status");
+
+    const stringRef = cur.stringId ? doc(db, "strings", cur.stringId) : null;
+    const stockRef = cur.stringId ? doc(db, "stringStock", stockDocId(cur.shopId, cur.stringId)) : null;
+    const stringSnap = stringRef ? await tx.get(stringRef) : null;
+    const stockSnap = stockRef ? await tx.get(stockRef) : null;
+
+    tx.update(orderRef, {
+      status: "cancelado",
+      statusHistory: arrayUnion({ status: "cancelado", at: Timestamp.now(), by: user.uid }),
+    });
+
+    if (stringRef && stockRef && stringSnap?.exists()) {
+      const item = { id: stringRef.id, ...(stringSnap.data() as Omit<StringItem, "id">) };
+      if (stockSnap?.exists()) {
+        tx.update(stockRef, { stock: (stockSnap.data() as StringStock).stock + 1 });
+      } else {
+        tx.set(stockRef, {
+          orgId: cur.orgId,
+          shopId: cur.shopId,
+          stringId: item.id,
+          stock: 1,
+          minStock: DEFAULT_MIN_STOCK,
+        });
+      }
+      tx.set(
+        doc(collection(db, "stockMovements")),
+        movementData(user, item, cur.shopId, "devolucion", 1, {
+          orderId: order.id,
+          orderNumber: order.number,
+        })
+      );
+    }
+  });
 }

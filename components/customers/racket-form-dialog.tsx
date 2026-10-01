@@ -164,7 +164,7 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
     setSaving(true);
     try {
       if (racket) await updateRacket(racket.id, input);
-      else await createRacket(appUser.shopId, customerId, input);
+      else await createRacket(appUser.orgId, customerId, input);
       toast.success(racket ? "Raqueta actualizada" : "Raqueta agregada");
       onOpenChange(false);
     } catch {

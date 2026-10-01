@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "create-shop": "node --env-file=.env.local scripts/create-shop.mjs"
+    "create-org": "node --env-file=.env.local scripts/create-org.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

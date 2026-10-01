@@ -2,11 +2,12 @@ import type { Timestamp } from "firebase/firestore";
 
 export type Sport = "tenis" | "padel" | "squash" | "badminton";
 
-export type Role = "admin" | "mostrador" | "encordador";
+export type Role = "admin" | "encargado" | "mostrador" | "encordador";
 
 export interface AppUser {
   uid: string;
-  shopId: string;
+  orgId: string;
+  shopId: string | null; // el admin no pertenece a una sucursal
   role: Role;
   name: string;
   email: string;
@@ -16,7 +17,7 @@ export interface AppUser {
 
 export interface Customer {
   id: string;
-  shopId: string;
+  orgId: string;
   name: string;
   phone: string; // guardado normalizado, solo dígitos
   email?: string;
@@ -26,7 +27,7 @@ export interface Customer {
 
 export interface Racket {
   id: string;
-  shopId: string;
+  orgId: string;
   customerId: string;
   brand: string;
   model: string;
@@ -47,16 +48,25 @@ export interface StringingSpec {
   notes?: string;
 }
 
-export interface Shop {
+export interface Organization {
   id: string;
   name: string;
+}
+
+export interface Shop {
+  id: string;
+  orgId: string;
+  name: string;
+  address?: string;
   phone?: string;
+  active?: boolean;
   laborPrices?: Partial<Record<Sport, number>>;
   paymentMethods?: string[];
 }
 
 export interface Payment {
   id: string;
+  orgId: string;
   shopId: string;
   orderId: string;
   orderNumber: number;
@@ -84,6 +94,7 @@ export type PaymentStatus = "pendiente" | "sena" | "pagado";
 
 export interface Order {
   id: string;
+  orgId: string;
   shopId: string;
   number: number; // correlativo por local
   customerId: string;
@@ -103,3 +114,34 @@ export interface Order {
   createdBy: string;
   statusHistory: { status: OrderStatus; at: Timestamp; by: string }[];
 }
+
+export interface StringItem {
+  id: string;
+  orgId: string;
+  brand: string;
+  model: string;
+  gauge: string;
+  color: string;
+  costPrice: number;
+  salePrice: number; // precio general del catálogo
+  active: boolean;
+  createdAt: Timestamp;
+}
+
+// Un documento por cuerda y por sucursal. id = `${shopId}_${stringId}`
+export interface StringStock {
+  id: string;
+  orgId: string;
+  shopId: string;
+  stringId: string;
+  stock: number;
+  minStock: number;
+  salePrice?: number; // si existe, pisa el precio del catálogo en esa sucursal
+}
+
+// Lo que ve la interfaz: catálogo + stock de la sucursal activa (o la suma de todas)
+export type StringView = StringItem & {
+  stock: number;
+  minStock: number;
+  catalogPrice: number; // salePrice pasa a ser el precio efectivo
+};

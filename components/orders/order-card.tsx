@@ -6,7 +6,7 @@ import { WhatsappIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
-import { useShop } from "@/hooks/use-shop";
+import { useShopById } from "@/hooks/use-shop";
 import { updateOrderStatus } from "@/lib/firestore/orders";
 import { formatDay, money } from "@/lib/format";
 import { advanceLabel, isOverdue, nextStatus, statusMeta } from "@/lib/order-status";
@@ -16,17 +16,18 @@ import type { Order } from "@/types";
 import { PaymentDialog } from "@/components/payments/payment-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { isStaff } from "@/lib/roles";
 
 export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
   const { appUser } = useAuth();
-  const shop = useShop();
+  const shop = useShopById(order.shopId);
   const [payOpen, setPayOpen] = useState(false);
 
   const next = nextStatus[order.status];
   const overdue = isOverdue(order);
   const shopName = shop?.name ?? "el local";
   const balance = balanceOf(order);
-  const canManage = appUser?.role === "admin" || appUser?.role === "mostrador";
+  const canManage = isStaff(appUser?.role);
 
   async function advance() {
     if (!next || !appUser) return;
@@ -85,7 +86,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
             {advanceLabel[order.status]}
           </Button>
         )}
-        {order.status === "listo" && appUser?.role !== "encordador" && (
+        {order.status === "listo" && isStaff(appUser?.role) && (
           <a
             href={whatsappLink(order.customerPhone, messages.listo(order, shopName))}
             target="_blank"
