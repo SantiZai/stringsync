@@ -1,5 +1,5 @@
 @AGENTS.md
-# Encordados: app para casas de encordados
+# StringSync: app para casas de encordados
 
 ## Stack
 Next.js (App Router, src/), TypeScript, Tailwind, shadcn/ui, Firebase (Auth, Firestore, Storage).

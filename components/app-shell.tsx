@@ -12,17 +12,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-
-function Logo() {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-        E
-      </div>
-      <span className="text-lg font-semibold tracking-tight">Encordados</span>
-    </div>
-  );
-}
+import { Logo } from "@/components/brand/logo";
 
 function useVisibleNav() {
   const { appUser } = useAuth();

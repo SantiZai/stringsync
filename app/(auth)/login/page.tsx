@@ -23,6 +23,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Logo } from "@/components/brand/logo";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 
 const schema = z.object({
   email: z.string().email("Ingresá un email válido"),
@@ -78,18 +80,11 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-primary p-10 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-foreground/15 font-bold">
-            E
-          </div>
-          <span className="text-xl font-semibold tracking-tight">Encordados</span>
-        </div>
+        <Logo size={38} inverted className="[&>span:last-child]:text-xl" />
         <div className="max-w-md space-y-3">
-          <h2 className="text-4xl font-semibold leading-tight tracking-tight">
-            Cada raqueta, en su punto justo.
-          </h2>
+          <h2 className="text-4xl font-semibold leading-tight tracking-tight">{APP_TAGLINE}</h2>
           <p className="text-primary-foreground/80">
-            Pedidos, clientes y avisos en un solo lugar, para que el taller trabaje sin papeles.
+            Pedidos, clientes, stock y avisos en un solo lugar, para que el taller trabaje sin papeles.
           </p>
         </div>
         <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full border-[28px] border-primary-foreground/10" />
@@ -98,7 +93,8 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-6">
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-semibold tracking-tight">Bienvenido</h1>
+            <Logo className="mb-6" />
+            <h1 className="text-2xl font-semibold tracking-tight">Bienvenido a {APP_NAME}</h1>
             <p className="text-sm text-muted-foreground">Ingresá con tu cuenta del local</p>
           </div>
 
