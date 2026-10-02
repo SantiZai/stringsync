@@ -24,3 +24,6 @@ export const canManageTeam = isManager;
 
 /** Crear y editar sucursales, y nombrar encargados */
 export const canManageBranches = isAdmin;
+
+/** Crear cuerdas nuevas en el catálogo */
+export const canCreateStrings = isManager;

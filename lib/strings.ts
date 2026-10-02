@@ -47,3 +47,22 @@ export function mergeStock(
     };
   });
 }
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+// main: siempre en sets. detail: la equivalencia en rollos, si la cuerda tiene rollos.
+export function formatStock(stock: number, setsPerRoll?: number) {
+  const main = plural(stock, "set", "sets");
+  if (!setsPerRoll || stock < setsPerRoll) return { main, detail: null as string | null };
+
+  const rolls = Math.floor(stock / setsPerRoll);
+  const rest = stock - rolls * setsPerRoll;
+  const detail =
+    rest > 0
+      ? `${plural(rolls, "rollo", "rollos")} y ${plural(rest, "set", "sets")}`
+      : plural(rolls, "rollo", "rollos");
+  return { main, detail };
+}
+
+export const unitLabel = (unit: "set" | "rollo", n: number) =>
+  unit === "set" ? plural(n, "set", "sets") : plural(n, "rollo", "rollos");

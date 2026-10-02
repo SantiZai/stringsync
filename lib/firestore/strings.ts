@@ -8,7 +8,7 @@ import {
   Timestamp,
   updateDoc,
   where,
-  addDoc,
+  writeBatch,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -31,6 +31,14 @@ export interface StringInput {
   color: string;
   costPrice: number;
   salePrice: number;
+  setsPerRoll: number | null;
+}
+
+// Lo que se cargó: unit/units es lo que escribió la persona, sets es la conversión
+export interface StockEntry {
+  unit: "set" | "rollo";
+  units: number;
+  sets: number;
 }
 
 export function movementData(
@@ -39,7 +47,13 @@ export function movementData(
   shopId: string,
   type: StockMovement["type"],
   quantity: number,
-  extra: { note?: string; orderId?: string; orderNumber?: number } = {}
+  extra: {
+    note?: string;
+    orderId?: string;
+    orderNumber?: number;
+    unit?: "set" | "rollo";
+    units?: number;
+  } = {}
 ) {
   return clean({
     orgId: user.orgId,
@@ -93,12 +107,51 @@ export function subscribeStringMovements(
   );
 }
 
-export async function createString(user: AppUser, input: StringInput) {
-  await addDoc(col, { ...input, orgId: user.orgId, active: true, createdAt: Timestamp.now() });
+export async function createString(
+  user: AppUser,
+  input: StringInput,
+  initial?: StockEntry & { shopId: string }
+) {
+  const ref = doc(col);
+  const batch = writeBatch(db);
+
+  batch.set(
+    ref,
+    clean({
+      ...input,
+      setsPerRoll: input.setsPerRoll ?? undefined, // Firestore no acepta null/undefined acá
+      orgId: user.orgId,
+      active: true,
+      createdAt: Timestamp.now(),
+    })
+  );
+
+  if (initial && initial.sets > 0) {
+    batch.set(doc(db, "stringStock", stockDocId(initial.shopId, ref.id)), {
+      orgId: user.orgId,
+      shopId: initial.shopId,
+      stringId: ref.id,
+      stock: initial.sets,
+      minStock: DEFAULT_MIN_STOCK,
+    });
+    batch.set(
+      doc(movCol),
+      movementData(user, { id: ref.id, ...input }, initial.shopId, "ingreso", initial.sets, {
+        note: "Stock inicial",
+        unit: initial.unit,
+        units: initial.units,
+      })
+    );
+  }
+
+  await batch.commit();
 }
 
 export async function updateString(id: string, input: StringInput) {
-  await updateDoc(doc(db, "strings", id), { ...input });
+  await updateDoc(doc(db, "strings", id), {
+    ...input,
+    setsPerRoll: input.setsPerRoll ?? deleteField(),
+  });
 }
 
 export async function setStringActive(id: string, active: boolean) {
@@ -112,7 +165,8 @@ export async function adjustStock(
   shopId: string,
   mode: "ingreso" | "ajuste",
   value: number,
-  note: string
+  note: string,
+  entry?: Pick<StockEntry, "unit" | "units">
 ) {
   const ref = doc(db, "stringStock", stockDocId(shopId, item.id));
   await runTransaction(db, async (tx) => {
@@ -130,7 +184,14 @@ export async function adjustStock(
         stock: current + delta,
         minStock: DEFAULT_MIN_STOCK,
       });
-    tx.set(doc(movCol), movementData(user, item, shopId, mode, delta, { note }));
+    tx.set(
+      doc(movCol),
+      movementData(user, item, shopId, mode, delta, {
+        note,
+        unit: entry?.unit,
+        units: entry?.units,
+      })
+    );
   });
 }
 

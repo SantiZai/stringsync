@@ -16,7 +16,7 @@ import { subscribeCustomerRackets } from "@/lib/firestore/rackets";
 import { createOrder } from "@/lib/firestore/orders";
 import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
 import { formatDay, money, parseAmount } from "@/lib/format";
-import { stringLabel } from "@/lib/strings";
+import { stringLabel, formatStock } from "@/lib/strings";
 import { fold, digitsOnly, initials } from "@/lib/text";
 import { messages, whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
@@ -393,7 +393,7 @@ export function NewOrderForm() {
                   <SelectContent>
                     {activeStrings.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {stringLabel(s)} · {s.stock > 0 ? `${s.stock} en stock` : "sin stock"}
+                        {stringLabel(s)} · {s.stock > 0 ? formatStock(s.stock, s.setsPerRoll).main : "sin stock"}
                       </SelectItem>
                     ))}
                     <SelectItem value="otra">Otra (sin control de stock)</SelectItem>

@@ -9,8 +9,8 @@ import { useAuth } from "@/providers/auth-provider";
 import { useStrings } from "@/hooks/use-strings";
 import { setStringActive } from "@/lib/firestore/strings";
 import { money } from "@/lib/format";
-import { isStaff } from "@/lib/roles";
-import { stockLevel, stockMeta, stringLabel } from "@/lib/strings";
+import { isStaff, canCreateStrings } from "@/lib/roles";
+import { stockLevel, stockMeta, stringLabel, formatStock } from "@/lib/strings";
 import { fold } from "@/lib/text";
 import { cn } from "@/lib/utils";
 import type { StringView } from "@/types";
@@ -73,7 +73,7 @@ export default function CuerdasPage() {
         title="Cuerdas"
         description={shopId ? "Catálogo y stock de esta sucursal" : "Catálogo y stock de todas las sucursales"}
         actions={
-          isAdmin && (
+          canCreateStrings(appUser?.role) && (
             <Button onClick={() => openForm()}>
               <HugeiconsIcon icon={Add01Icon} size={16} className="mr-2" />
               Nueva cuerda
@@ -149,6 +149,7 @@ export default function CuerdasPage() {
         <ul className="space-y-3">
           {list.map((s) => {
             const level = stockLevel(s);
+            const qty = formatStock(s.stock, s.setsPerRoll);
             const details = [s.gauge, s.color].filter(Boolean).join(" · ");
             const customPrice = shopId !== null && s.salePrice !== s.catalogPrice;
             return (
@@ -169,10 +170,9 @@ export default function CuerdasPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="text-xl font-semibold leading-none">{s.stock}</span>
-                    <Badge className={`border-0 ${stockMeta[level].badge}`}>
-                      {stockMeta[level].label}
-                    </Badge>
+                    <span className="text-xl font-semibold leading-none">{qty.main}</span>
+                    {qty.detail && <span className="text-xs text-muted-foreground">{qty.detail}</span>}
+                    <Badge className={`border-0 ${stockMeta[level].badge}`}>{stockMeta[level].label}</Badge>
                   </div>
                 </div>
 
@@ -222,7 +222,13 @@ export default function CuerdasPage() {
         </ul>
       )}
 
-      <StringFormDialog open={formOpen} onOpenChange={setFormOpen} item={editing} />
+      <StringFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        item={editing}
+        shopId={shopId}
+        canSeeCost={isAdmin}
+      />
       <StockDialog item={stockTarget} shopId={shopId} onClose={() => setStockId(null)} />
     </div>
   );

@@ -11,13 +11,20 @@ import {
 } from "@/lib/firestore/strings";
 import { formatDateTime, money, parseAmount } from "@/lib/format";
 import { isManager } from "@/lib/roles";
-import { stringLabel } from "@/lib/strings";
+import { formatStock, stringLabel, unitLabel } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import type { StockMovement, StringView } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -28,11 +35,12 @@ import {
 } from "@/components/ui/dialog";
 
 type Mode = "ingreso" | "ajuste" | "config";
+type Unit = "set" | "rollo";
 
 function movementLabel(m: StockMovement) {
   switch (m.type) {
     case "ingreso":
-      return "Ingreso";
+      return m.unit === "rollo" && m.units ? `Ingreso · ${unitLabel("rollo", m.units)}` : "Ingreso";
     case "ajuste":
       return "Ajuste";
     case "consumo":
@@ -53,6 +61,7 @@ export function StockDialog({ item, shopId, onClose }: Props) {
   const manager = isManager(appUser?.role);
 
   const [mode, setMode] = useState<Mode>("ingreso");
+  const [unit, setUnit] = useState<Unit>("set");
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("");
   const [minStock, setMinStock] = useState("");
@@ -62,9 +71,11 @@ export function StockDialog({ item, shopId, onClose }: Props) {
 
   const itemId = item?.id;
   const orgId = appUser?.orgId;
+  const perRoll = item?.setsPerRoll;
 
   useEffect(() => {
     setMode("ingreso");
+    setUnit("set");
     setQty("");
     setNote("");
     setMoves([]);
@@ -80,10 +91,13 @@ export function StockDialog({ item, shopId, onClose }: Props) {
   }, [itemId]);
 
   const n = /^\d+$/.test(qty.trim()) ? parseInt(qty, 10) : null;
-  const resulting = item && n !== null ? (mode === "ingreso" ? item.stock + n : n) : null;
+  // Todo se guarda en sets: si se carga por rollo, se convierte
+  const sets = n === null ? null : mode === "ingreso" && unit === "rollo" ? n * (perRoll ?? 0) : n;
+  const resulting = item && sets !== null ? (mode === "ingreso" ? item.stock + sets : sets) : null;
 
   function changeMode(m: Mode) {
     setMode(m);
+    setUnit("set");
     setQty(m === "ajuste" && item ? String(item.stock) : "");
   }
 
@@ -92,7 +106,8 @@ export function StockDialog({ item, shopId, onClose }: Props) {
     setSaving(true);
     try {
       if (mode === "config") {
-        if (!/^\d+$/.test(minStock.trim())) return toast.error("El mínimo tiene que ser un número entero");
+        if (!/^\d+$/.test(minStock.trim()))
+          return toast.error("El mínimo tiene que ser un número entero");
         const p = price.trim() ? parseAmount(price) : null;
         if (p !== null && !(p > 0)) return toast.error("Precio inválido");
         await updateStockSettings(appUser, item, shopId, {
@@ -101,9 +116,20 @@ export function StockDialog({ item, shopId, onClose }: Props) {
         });
         toast.success("Ajustes guardados");
       } else {
-        if (n === null) return toast.error("Ingresá una cantidad entera");
+        if (n === null || sets === null) return toast.error("Ingresá una cantidad entera");
         if (mode === "ingreso" && n <= 0) return toast.error("La cantidad tiene que ser mayor a 0");
-        await adjustStock(appUser, item, shopId, mode, n, note.trim());
+        if (mode === "ingreso" && unit === "rollo" && !perRoll)
+          return toast.error("Esta cuerda no tiene definidos los sets por rollo");
+
+        await adjustStock(
+          appUser,
+          item,
+          shopId,
+          mode,
+          sets,
+          note.trim(),
+          mode === "ingreso" ? { unit, units: n } : undefined
+        );
         toast.success(mode === "ingreso" ? "Stock ingresado" : "Stock corregido");
       }
       onClose();
@@ -114,17 +140,20 @@ export function StockDialog({ item, shopId, onClose }: Props) {
     }
   }
 
+  const current = item ? formatStock(item.stock, item.setsPerRoll) : null;
+  const after = resulting !== null ? formatStock(resulting, perRoll) : null;
+
   return (
     <Dialog open={item !== null && shopId !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        {item && (
+        {item && current && (
           <>
             <DialogHeader>
               <DialogTitle>{stringLabel(item)}</DialogTitle>
               <DialogDescription>
                 Stock en esta sucursal:{" "}
-                <span className="font-semibold text-foreground">{item.stock}</span>{" "}
-                {item.stock === 1 ? "set" : "sets"}
+                <span className="font-semibold text-foreground">{current.main}</span>
+                {current.detail && ` (${current.detail})`}
               </DialogDescription>
             </DialogHeader>
 
@@ -147,7 +176,7 @@ export function StockDialog({ item, shopId, onClose }: Props) {
             {mode === "config" ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="minStock">Avisar cuando queden</Label>
+                  <Label htmlFor="minStock">Avisar cuando queden (sets)</Label>
                   <Input
                     id="minStock"
                     inputMode="numeric"
@@ -170,19 +199,50 @@ export function StockDialog({ item, shopId, onClose }: Props) {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="qty">
-                    {mode === "ingreso" ? "Sets que ingresan" : "Stock real contado"}
+                    {mode === "ingreso" ? "Cantidad que ingresa" : "Stock real contado (en sets)"}
                   </Label>
-                  <Input
-                    id="qty"
-                    inputMode="numeric"
-                    value={qty}
-                    onChange={(e) => setQty(e.target.value)}
-                    autoFocus
-                  />
-                  {resulting !== null && (
-                    <p className="text-xs text-muted-foreground">Va a quedar en {resulting}.</p>
+                  <div className={cn("grid gap-3", mode === "ingreso" && "grid-cols-[1fr_8rem]")}>
+                    <Input
+                      id="qty"
+                      inputMode="numeric"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                      autoFocus
+                    />
+                    {mode === "ingreso" && (
+                      <Select value={unit} onValueChange={(v) => v && setUnit(v as Unit)}>
+                        <SelectTrigger className="w-full" aria-label="Unidad">
+                          <SelectValue>{unit === "set" ? "Sets" : "Rollos"}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="set">Sets</SelectItem>
+                          <SelectItem value="rollo" disabled={!perRoll}>
+                            Rollos
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  {mode === "ingreso" && !perRoll && (
+                    <p className="text-xs text-muted-foreground">
+                      Para cargar por rollo, el administrador tiene que indicar cuántos sets rinde
+                      un rollo de esta cuerda (Editar cuerda).
+                    </p>
+                  )}
+                  {mode === "ingreso" && unit === "rollo" && n !== null && perRoll && (
+                    <p className="text-xs text-muted-foreground">
+                      {unitLabel("rollo", n)} × {perRoll} = {unitLabel("set", n * perRoll)}
+                    </p>
+                  )}
+                  {after && (
+                    <p className="text-xs text-muted-foreground">
+                      Va a quedar en {after.main}
+                      {after.detail && ` (${after.detail})`}.
+                    </p>
                   )}
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="stockNote">Nota (opcional)</Label>
                   <Input
@@ -197,7 +257,10 @@ export function StockDialog({ item, shopId, onClose }: Props) {
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium">Últimos movimientos</p>
                     {moves.slice(0, 8).map((m) => (
-                      <p key={m.id} className="flex justify-between gap-3 text-sm text-muted-foreground">
+                      <p
+                        key={m.id}
+                        className="flex justify-between gap-3 text-sm text-muted-foreground"
+                      >
                         <span className="truncate">
                           {formatDateTime(m.createdAt.toDate())} · {movementLabel(m)}
                           {m.note ? ` · ${m.note}` : ""}
@@ -208,7 +271,8 @@ export function StockDialog({ item, shopId, onClose }: Props) {
                             m.quantity > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
                           )}
                         >
-                          {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
+                          {m.quantity > 0 ? `+${m.quantity}` : m.quantity}{" "}
+                          {Math.abs(m.quantity) === 1 ? "set" : "sets"}
                         </span>
                       </p>
                     ))}

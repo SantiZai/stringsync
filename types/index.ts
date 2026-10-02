@@ -125,6 +125,7 @@ export interface StringItem {
   color: string;
   costPrice: number;
   salePrice: number; // precio general del catálogo
+  setsPerRoll?: number; // cuántos encordados rinde un rollo (si se vende por rollo)
   active: boolean;
   createdAt: Timestamp;
 }
@@ -155,6 +156,8 @@ export interface StockMovement {
   stringLabel: string;
   type: "ingreso" | "ajuste" | "consumo" | "devolucion";
   quantity: number; // con signo: +5, -1
+  unit?: "set" | "rollo"; // cómo se cargó el movimiento
+  units?: number;         // cantidad en esa unidad (quantity sigue en sets)
   orderId?: string;
   orderNumber?: number;
   note?: string;
