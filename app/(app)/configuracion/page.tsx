@@ -69,11 +69,11 @@ export default function ConfiguracionPage() {
     }
   }
 
-  if (!shop) return <BranchRequired action="crear un pedido" />;
+  
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Configuración" description="Precios y medios de pago" />
+      <PageHeader title="Configuración" description={shop ? `Sucursal ${shop.name}` : "Todas las sucursales"} />
 
       <Link
         href="/configuracion/equipo"
@@ -91,26 +91,32 @@ export default function ConfiguracionPage() {
         <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-muted-foreground" />
       </Link>
 
-      <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {sports.map((s) => (
-            <div key={s.value} className="space-y-2">
-              <Label htmlFor={`price-${s.value}`}>{s.label}</Label>
-              <Input
-                id={`price-${s.value}`}
-                inputMode="decimal"
-                placeholder="0"
-                value={prices[s.value]}
-                onChange={(e) => setPrices((p) => ({ ...p, [s.value]: e.target.value }))}
-              />
+      {
+        shop ? (
+          <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {sports.map((s) => (
+                <div key={s.value} className="space-y-2">
+                  <Label htmlFor={`price-${s.value}`}>{s.label}</Label>
+                  <Input
+                    id={`price-${s.value}`}
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={prices[s.value]}
+                    onChange={(e) => setPrices((p) => ({ ...p, [s.value]: e.target.value }))}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <Button onClick={save} disabled={saving}>
-          {saving ? "Guardando…" : "Guardar"}
-        </Button>
-      </div>
-      <PaymentMethodsCard />
+            <Button onClick={save} disabled={saving}>
+              {saving ? "Guardando…" : "Guardar"}
+            </Button>
+            <PaymentMethodsCard />
+          </div>
+        ) : (
+          <BranchRequired action="editar los precios de mano de obra y los medios de pago" />
+        )
+      }
     </div>
   );
 }

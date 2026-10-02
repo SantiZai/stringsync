@@ -16,8 +16,15 @@ export function errorResponse(e: unknown) {
   return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }
 
-// Verifica el token de quien llama y que sea admin activo. Devuelve su uid y su local.
-export async function requireAdmin(req: Request) {
+export interface Actor {
+  uid: string;
+  orgId: string;
+  shopId: string | null;
+  role: "admin" | "encargado";
+}
+
+// Verifica el token de quien llama y que sea admin o encargado activo
+export async function requireManager(req: Request): Promise<Actor> {
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) throw new HttpError(401, "No autenticado");
@@ -30,8 +37,20 @@ export async function requireAdmin(req: Request) {
   }
 
   const data = (await adminDb.doc(`users/${uid}`).get()).data();
-  if (!data || data.role !== "admin" || data.active === false) {
+  if (
+    !data ||
+    !data.orgId ||
+    !["admin", "encargado"].includes(data.role) ||
+    data.active === false ||
+    (data.role === "encargado" && !data.shopId)
+  ) {
     throw new HttpError(403, "No tenés permisos para esta acción");
   }
-  return { uid, shopId: data.shopId as string };
+
+  return {
+    uid,
+    orgId: data.orgId as string,
+    shopId: (data.shopId ?? null) as string | null,
+    role: data.role as "admin" | "encargado",
+  };
 }

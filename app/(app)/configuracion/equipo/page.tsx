@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Add01Icon, ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
+import { useShops } from "@/providers/shop-provider";
 import { subscribeTeam } from "@/lib/firestore/team";
 import { updateMember } from "@/lib/team-api";
 import { roleLabels } from "@/lib/navigation";
+import { isManager } from "@/lib/roles";
 import { initials } from "@/lib/text";
 import type { AppUser } from "@/types";
 import { PageHeader } from "@/components/page-header";
@@ -32,22 +34,51 @@ import {
 
 export default function EquipoPage() {
   const { appUser } = useAuth();
-  const shopId = appUser?.shopId;
+  const { shops, activeShopId } = useShops();
+
+  const orgId = appUser?.orgId;
+  const role = appUser?.role;
+  const ownShopId = appUser?.shopId ?? null;
+  const isAdmin = role === "admin";
 
   const [members, setMembers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AppUser | undefined>();
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<AppUser | null>(null);
 
   useEffect(() => {
-    if (!shopId) return;
-    return subscribeTeam(shopId, (list) => {
-      setMembers(list);
+    if (!orgId || !role) return;
+    if (!isManager(role)) {
       setLoading(false);
-    });
-  }, [shopId]);
+      return;
+    }
+    setLoading(true);
+    setFailed(false);
+    return subscribeTeam(
+      { orgId, role, shopId: ownShopId },
+      (list) => {
+        setMembers(list);
+        setLoading(false);
+      },
+      (e) => {
+        console.error(e);
+        setFailed(true);
+        setLoading(false);
+      }
+    );
+  }, [orgId, role, ownShopId]);
+
+  const shopName = (id: string | null) =>
+    id ? (shops.find((s) => s.id === id)?.name ?? "Sucursal") : "Todas las sucursales";
+
+  // Con una sucursal elegida en el selector, se muestra solo su equipo
+  const visible = useMemo(
+    () => (activeShopId ? members.filter((m) => m.shopId === activeShopId) : members),
+    [members, activeShopId]
+  );
 
   function openForm(member?: AppUser) {
     setEditing(member);
@@ -65,6 +96,10 @@ export default function EquipoPage() {
     }
   }
 
+  if (appUser && !isManager(appUser.role)) {
+    return <p className="text-muted-foreground">No tenés permisos para ver esta sección.</p>;
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
@@ -72,12 +107,18 @@ export default function EquipoPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
-        Configuración
+        Ajustes
       </Link>
 
       <PageHeader
         title="Equipo"
-        description="Quién puede ingresar y qué puede hacer"
+        description={
+          isAdmin
+            ? activeShopId
+              ? `Equipo de ${shopName(activeShopId)}`
+              : "Equipo de todas las sucursales"
+            : `Equipo de ${shopName(ownShopId)}`
+        }
         actions={
           <Button onClick={() => openForm()}>
             <HugeiconsIcon icon={Add01Icon} size={16} className="mr-2" />
@@ -92,12 +133,24 @@ export default function EquipoPage() {
             <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
+      ) : failed ? (
+        <div className="rounded-xl border border-dashed bg-card/50 p-8 text-center text-sm text-muted-foreground">
+          No se pudo cargar el equipo. Revisá que hayas publicado las reglas de Firestore y que tu
+          usuario tenga <code>orgId</code>. El detalle está en la consola del navegador.
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-card/50 p-8 text-center text-sm text-muted-foreground">
+          Todavía no hay integrantes en esta sucursal.
+        </div>
       ) : (
         <ul className="space-y-3">
-          {members.map((m) => {
+          {visible.map((m) => {
             const isMe = m.uid === appUser?.uid;
-            const locked = isMe || m.role === "admin";
+            // El admin no se toca desde la app, y el encargado no gestiona a otros encargados
+            const locked =
+              isMe || m.role === "admin" || (role === "encargado" && m.role === "encargado");
             const inactive = m.active === false;
+
             return (
               <li key={m.uid} className="space-y-3 rounded-xl border bg-card p-3.5 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -113,7 +166,10 @@ export default function EquipoPage() {
                     </p>
                     <p className="truncate text-sm text-muted-foreground">{m.email}</p>
                   </div>
-                  <Badge variant="secondary">{roleLabels[m.role]}</Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge variant="secondary">{roleLabels[m.role]}</Badge>
+                    <span className="text-xs text-muted-foreground">{shopName(m.shopId)}</span>
+                  </div>
                 </div>
 
                 {(inactive || m.mustChangePassword || !locked) && (
@@ -160,7 +216,12 @@ export default function EquipoPage() {
         </ul>
       )}
 
-      <MemberFormDialog open={formOpen} onOpenChange={setFormOpen} member={editing} />
+      <MemberFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        member={editing}
+        defaultShopId={activeShopId}
+      />
       <ResetPasswordDialog member={resetTarget} onClose={() => setResetTarget(null)} />
 
       <AlertDialog
@@ -171,8 +232,8 @@ export default function EquipoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Desactivar a {deactivateTarget?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Pierde el acceso al instante y se cierran sus sesiones. Sus pedidos y cobros
-              quedan en el historial, y podés reactivar la cuenta cuando quieras.
+              Pierde el acceso al instante y se cierran sus sesiones. Sus pedidos y cobros quedan en
+              el historial, y podés reactivar la cuenta cuando quieras.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

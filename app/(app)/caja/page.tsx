@@ -7,11 +7,13 @@ import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
+import { useScope, useShops } from "@/providers/shop-provider";
 import { subscribeOrdersWithBalance } from "@/lib/firestore/orders";
 import { subscribePayments, voidPayment } from "@/lib/firestore/payments";
 import { formatDay, formatTime, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
 import { balanceOf } from "@/lib/payments";
+import { isManager, isStaff } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import type { Order, Payment } from "@/types";
 import { PageHeader } from "@/components/page-header";
@@ -30,15 +32,38 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { isManager, isStaff } from "@/lib/roles";
-import { useScope } from "@/providers/shop-provider";
 
 type Tab = "cobros" | "pendientes";
 
+function Bars({ rows, total }: { rows: [string, number][]; total: number }) {
+  return (
+    <>
+      {rows.map(([label, amount]) => (
+        <div key={label} className="space-y-1.5">
+          <div className="flex justify-between text-sm">
+            <span>{label}</span>
+            <span className="font-medium">{money(amount)}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${total > 0 ? (amount / total) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function CajaPage() {
   const { appUser } = useAuth();
+  const { shops } = useShops();
   const scope = useScope();
-  const isAdmin = isManager(appUser?.role);
+  const orgId = scope?.orgId;
+  const shopId = scope?.shopId ?? null;
+  const allBranches = shopId === null;
+  const canVoid = isManager(appUser?.role);
 
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [tab, setTab] = useState<Tab>("cobros");
@@ -53,12 +78,14 @@ export default function CajaPage() {
   const [payId, setPayId] = useState<string | null>(null);
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
 
+  const shopName = (id: string) => shops.find((s) => s.id === id)?.name ?? "Sucursal";
+
   useEffect(() => {
-    if (!scope) return;
+    if (!orgId) return;
     setLoadingPayments(true);
     setPaymentsError(false);
     return subscribePayments(
-      { orgId: scope.orgId, shopId: scope.shopId },
+      { orgId, shopId },
       day,
       addDays(day, 1),
       (list) => {
@@ -66,33 +93,40 @@ export default function CajaPage() {
         setLoadingPayments(false);
       },
       (e) => {
-        console.error(e); // si falta el índice, acá aparece el link para crearlo
+        console.error(e); // si falta un índice, acá aparece el link para crearlo
         setPaymentsError(true);
         setLoadingPayments(false);
       }
     );
-  }, [scope?.orgId, scope?.shopId, day]);
+  }, [orgId, shopId, day]);
 
   useEffect(() => {
-    if (!scope) return;
-    return subscribeOrdersWithBalance(
-      { orgId: scope.orgId, shopId: scope.shopId },
-      (list) => {
-        setPending(list);
-        setLoadingPending(false);
-      }
-    );
-  }, [scope?.orgId, scope?.shopId]);
+    if (!orgId) return;
+    setLoadingPending(true);
+    return subscribeOrdersWithBalance({ orgId, shopId }, (list) => {
+      setPending(list);
+      setLoadingPending(false);
+    });
+  }, [orgId, shopId]);
 
   const valid = useMemo(() => payments.filter((p) => !p.voided), [payments]);
   const total = valid.reduce((sum, p) => sum + p.amount, 0);
+
   const byMethod = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of valid) map.set(p.method, (map.get(p.method) ?? 0) + p.amount);
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [valid]);
-  const pendingTotal = pending.reduce((sum, o) => sum + balanceOf(o), 0);
 
+  const byShop = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of valid) map.set(p.shopId, (map.get(p.shopId) ?? 0) + p.amount);
+    return [...map.entries()]
+      .map(([id, amount]) => [shops.find((s) => s.id === id)?.name ?? "Sucursal", amount] as [string, number])
+      .sort((a, b) => b[1] - a[1]);
+  }, [valid, shops]);
+
+  const pendingTotal = pending.reduce((sum, o) => sum + balanceOf(o), 0);
   const isToday = isSameDay(day, new Date());
   const payOrder = pending.find((o) => o.id === payId) ?? null;
 
@@ -114,7 +148,11 @@ export default function CajaPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Caja" description={isToday ? "Hoy" : formatDay(day)} />
+      <PageHeader
+        title="Caja"
+        description={`${allBranches ? "Todas las sucursales" : shopName(shopId)} · ${isToday ? "Hoy" : formatDay(day)
+          }`}
+      />
 
       {/* Selector de día */}
       <div className="flex items-center gap-2">
@@ -163,23 +201,17 @@ export default function CajaPage() {
         </div>
       </div>
 
+      {allBranches && byShop.length > 1 && (
+        <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+          <p className="text-sm font-semibold">Por sucursal</p>
+          <Bars rows={byShop} total={total} />
+        </div>
+      )}
+
       {byMethod.length > 0 && (
         <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-sm font-semibold">Por medio de pago</p>
-          {byMethod.map(([method, amount]) => (
-            <div key={method} className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span>{method}</span>
-                <span className="font-medium">{money(amount)}</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${(amount / total) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
+          <Bars rows={byMethod} total={total} />
         </div>
       )}
 
@@ -204,8 +236,9 @@ export default function CajaPage() {
           </div>
         ) : paymentsError ? (
           <div className="rounded-xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
-            No se pudo cargar la caja. Si es la primera vez, falta crear un índice en Firestore:
-            abrí la consola del navegador, hacé clic en el link del error y esperá un par de minutos.
+            No se pudo cargar la caja. Si es la primera vez que ves esta vista, falta crear un
+            índice en Firestore: abrí la consola del navegador, hacé clic en el link del error y
+            esperá un par de minutos.
           </div>
         ) : payments.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-card/50 p-6 text-center text-sm text-muted-foreground">
@@ -231,6 +264,11 @@ export default function CajaPage() {
                     {formatTime(p.createdAt.toDate())} · {p.method} · {p.createdByName}
                     {p.note ? ` · ${p.note}` : ""}
                   </p>
+                  {allBranches && (
+                    <Badge variant="outline" className="mt-1.5">
+                      {shopName(p.shopId)}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {p.voided ? (
@@ -240,7 +278,7 @@ export default function CajaPage() {
                   ) : (
                     <span className="font-semibold">{money(p.amount)}</span>
                   )}
-                  {isAdmin && !p.voided && (
+                  {canVoid && !p.voided && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -282,6 +320,11 @@ export default function CajaPage() {
                   <p className="truncate text-xs text-muted-foreground">
                     {o.racketLabel} · {statusMeta[o.status].label}
                   </p>
+                  {allBranches && (
+                    <Badge variant="outline" className="mt-1.5">
+                      {shopName(o.shopId)}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <div className="text-right">
@@ -307,8 +350,9 @@ export default function CajaPage() {
             <AlertDialogTitle>¿Anular este cobro?</AlertDialogTitle>
             <AlertDialogDescription>
               Se anula el cobro de {voidTarget ? money(voidTarget.amount) : ""} del pedido #
-              {voidTarget?.orderNumber}. El monto vuelve a figurar como pendiente y el cobro queda
-              registrado como anulado.
+              {voidTarget?.orderNumber}
+              {voidTarget && allBranches ? ` (${shopName(voidTarget.shopId)})` : ""}. El monto
+              vuelve a figurar como pendiente y el cobro queda registrado como anulado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
