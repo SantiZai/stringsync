@@ -148,13 +148,4 @@
   main {
     padding: 0 !important;
   }
-
-  /* En modo oscuro el texto sería blanco sobre papel blanco */
-  .receipt,
-  .receipt * {
-    color: #000 !important;
-    background: transparent !important;
-    border-color: #000 !important;
-    box-shadow: none !important;
-  }
 }
