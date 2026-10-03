@@ -35,6 +35,9 @@ export interface Racket {
   photoUrl?: string;
   // configuración habitual, para "repetir último encordado"
   usualSetup?: StringingSpec | null;
+  lastStrungAt?: Timestamp;   // último encordado (se actualiza al crear un pedido)
+  lastShopId?: string;        // sucursal donde se hizo
+  reminderSentAt?: Timestamp; // último aviso de reencordado
 }
 
 export interface StringingSpec {

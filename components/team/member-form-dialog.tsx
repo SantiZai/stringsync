@@ -53,9 +53,10 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   member?: AppUser; // si viene, es edición
   defaultShopId?: string | null;
+  defaultRole?: TeamRole;
 }
 
-export function MemberFormDialog({ open, onOpenChange, member, defaultShopId }: Props) {
+export function MemberFormDialog({ open, onOpenChange, member, defaultShopId, defaultRole }: Props) {
   const { appUser } = useAuth();
   const { shops } = useShops();
   const [saving, setSaving] = useState(false);
@@ -96,19 +97,19 @@ export function MemberFormDialog({ open, onOpenChange, member, defaultShopId }: 
     reset(
       member
         ? {
-            name: member.name,
-            email: member.email,
-            role: member.role === "admin" ? "mostrador" : member.role,
-            shopId: initialShop,
-            password: "",
-          }
+          name: member.name,
+          email: member.email,
+          role: member.role === "admin" ? "mostrador" : member.role,
+          shopId: initialShop,
+          password: "",
+        }
         : {
-            name: "",
-            email: "",
-            role: "mostrador",
-            shopId: initialShop,
-            password: generatePassword(),
-          }
+          name: "",
+          email: "",
+          role: defaultRole ?? "mostrador",
+          shopId: initialShop,
+          password: generatePassword(),
+        }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, member, appUser?.uid]);

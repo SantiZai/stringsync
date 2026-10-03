@@ -23,6 +23,13 @@ export const messages = {
   recordatorio: (o: OrderMsg, shop: string) =>
     `Hola ${o.customerName}! Te recordamos que tu ${o.racketLabel} (pedido #${o.number}) ` +
     `sigue esperándote en ${shop}.`,
+  reencordado: (
+    p: { customerName: string; racketLabel: string },
+    shop: string,
+    weeks: number
+  ) =>
+    `Hola ${p.customerName}! Pasaron ${weeks} semanas desde el último encordado de tu ${p.racketLabel}. ` +
+    `¿Querés que te lo dejemos listo? Te esperamos en ${shop}.`,
 };
 
 export function whatsappLink(phone: string, text: string): string {

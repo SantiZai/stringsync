@@ -17,3 +17,5 @@ export const parseAmount = (s: string) => {
   const n = parseFloat(s.replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 };
+
+export const formatFull = (d: Date) => format(d, "dd/MM/yyyy HH:mm");

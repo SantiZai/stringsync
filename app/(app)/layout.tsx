@@ -11,6 +11,7 @@ import { canAccess } from "@/lib/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ForcePasswordChange } from "@/components/account/force-password-change";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useShops } from "@/providers/shop-provider";
 
 function Notice({ text, onLogout }: { text: string; onLogout: () => void }) {
   return (
@@ -27,6 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { firebaseUser, appUser, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { shops } = useShops();
 
   useEffect(() => {
     if (!loading && !firebaseUser) router.replace("/login");
@@ -46,6 +48,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (appUser.active === false) {
     return <Notice text="Tu cuenta está desactivada. Consultá con el administrador del local." onLogout={logout} />;
+  }
+
+  if (appUser.role !== "admin" && shops[0]?.active === false) {
+    return <Notice text="Tu sucursal está desactivada. Consultá con el administrador." onLogout={logout} />;
   }
 
   if (appUser.mustChangePassword) return <ForcePasswordChange />;

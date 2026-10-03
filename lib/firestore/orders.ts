@@ -89,6 +89,8 @@ export async function createOrder(
     const number = (counter.exists() ? (counter.data().orders as number) : 0) + 1;
     const now = Timestamp.now();
 
+    tx.update(doc(db, "rackets", input.racketId), { lastStrungAt: now, lastShopId: shopId });
+
     let stringId: string | null = null;
     if (stringRef && stockRef && stringSnap?.exists()) {
       const item = { id: stringRef.id, ...(stringSnap.data() as Omit<StringItem, "id">) };

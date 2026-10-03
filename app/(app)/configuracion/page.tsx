@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowRight01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Analytics01Icon, ArrowRight01Icon, Store01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { BranchRequired } from "@/components/branch-required";
+import { SettingsLink } from "@/components/settings/settings-link";
 
 const sports: { value: Sport; label: string }[] = [
   { value: "tenis", label: "Tenis" },
@@ -69,27 +70,34 @@ export default function ConfiguracionPage() {
     }
   }
 
-  
+
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Configuración" description={shop ? `Sucursal ${shop.name}` : "Todas las sucursales"} />
 
-      <Link
-        href="/configuracion/equipo"
-        className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
-      >
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <HugeiconsIcon icon={UserGroupIcon} size={20} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">Equipo</span>
-          <span className="block text-sm text-muted-foreground">
-            Cuentas de mostrador y encordadores
-          </span>
-        </span>
-        <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-muted-foreground" />
-      </Link>
+      <div className="space-y-3">
+        <SettingsLink
+          href="/reportes"
+          icon={Analytics01Icon}
+          title="Reportes"
+          description="Ingresos, clientes y cuerdas por período"
+        />
+        <SettingsLink
+          href="/configuracion/equipo"
+          icon={UserGroupIcon}
+          title="Equipo"
+          description="Encargados, mostrador y encordadores"
+        />
+        {appUser?.role === "admin" && (
+          <SettingsLink
+            href="/configuracion/sucursales"
+            icon={Store01Icon}
+            title="Sucursales"
+            description="Crear, editar y asignar encargados"
+          />
+        )}
+      </div>
 
       {
         shop ? (

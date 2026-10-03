@@ -4,7 +4,8 @@ import {
   UserGroupIcon,
   Wallet01Icon,
   PackageIcon,
-  Settings01Icon
+  Settings01Icon,
+  Analytics01Icon
 } from "@hugeicons/core-free-icons";
 import type { Role } from "@/types";
 
@@ -13,6 +14,7 @@ export interface NavItem {
   href: string;
   icon: IconSvgElement;
   roles: Role[];
+  mobile?: boolean;
 }
 
 const ALL: Role[] = ["admin", "encargado", "mostrador", "encordador"];
@@ -25,6 +27,7 @@ export const navItems: NavItem[] = [
   { label: "Cuerdas", href: "/cuerdas", icon: PackageIcon, roles: STAFF },
   { label: "Caja", href: "/caja", icon: Wallet01Icon, roles: STAFF },
   { label: "Ajustes", href: "/configuracion", icon: Settings01Icon, roles: MANAGERS },
+  { label: "Reportes", href: "/reportes", icon: Analytics01Icon, roles: MANAGERS, mobile: false },
 ];
 
 export const roleLabels: Record<Role, string> = {
@@ -43,6 +46,7 @@ const routeRoles: [string, Role[]][] = [
   ["/caja", STAFF],
   ["/configuracion/sucursales", ["admin"]],
   ["/configuracion", MANAGERS],
+  ["/reportes", MANAGERS],
 ];
 
 export function canAccess(role: Role, pathname: string): boolean {

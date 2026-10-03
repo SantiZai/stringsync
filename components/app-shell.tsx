@@ -86,7 +86,7 @@ function Sidebar() {
 function MobileTopBar() {
   const { logout } = useAuth();
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden">
+    <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden no-print">
       <Logo />
       <div className="flex items-center gap-1">
         <ChangePasswordButton />
@@ -103,32 +103,34 @@ function BottomNav() {
   const { items, isActive } = useVisibleNav();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden no-print">
       <ul className="flex">
-        {items.map(({ label, href, icon }) => {
-          const active = isActive(href);
-          return (
-            <li key={href} className="flex-1">
-              <Link
-                href={href}
-                className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                  active ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <span
+        {items
+          .filter((i) => i.mobile !== false)
+          .map(({ label, href, icon }) => {
+            const active = isActive(href);
+            return (
+              <li key={href} className="flex-1">
+                <Link
+                  href={href}
                   className={cn(
-                    "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
-                    active && "bg-primary/10"
+                    "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                    active ? "text-primary" : "text-muted-foreground"
                   )}
                 >
-                  <HugeiconsIcon icon={icon} size={20} />
-                </span>
-                {label}
-              </Link>
-            </li>
-          );
-        })}
+                  <span
+                    className={cn(
+                      "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+                      active && "bg-primary/10"
+                    )}
+                  >
+                    <HugeiconsIcon icon={icon} size={20} />
+                  </span>
+                  {label}
+                </Link>
+              </li>
+            );
+          })}
       </ul>
     </nav>
   );
@@ -137,7 +139,7 @@ function BottomNav() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen md:flex">
-      <aside className="hidden w-64 shrink-0 border-r bg-card/50 md:block">
+      <aside className="hidden w-64 shrink-0 border-r bg-card/50 md:block no-print">
         <div className="sticky top-0 h-screen">
           <Sidebar />
         </div>
@@ -145,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="min-w-0 flex-1">
         <MobileTopBar />
-        <div className="border-b bg-background px-4 py-2 md:hidden">
+        <div className="border-b bg-background px-4 py-2 md:hidden no-print">
           <BranchSwitcher />
         </div>
         <main className="animate-in fade-in-0 duration-300 p-4 pb-28 md:p-8 md:pb-8">

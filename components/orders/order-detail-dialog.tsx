@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { WhatsappIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
@@ -198,6 +199,12 @@ export function OrderDetailDialog({
                       Cancelar pedido
                     </Button>
                   )}
+                  <Link
+                    href={`/pedidos/${order.id}/comprobante`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Comprobante
+                  </Link>
                 </div>
               )}
             </>

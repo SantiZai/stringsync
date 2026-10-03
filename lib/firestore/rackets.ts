@@ -7,6 +7,7 @@ import {
   query,
   updateDoc,
   where,
+  Timestamp,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -48,4 +49,16 @@ export async function updateRacket(id: string, input: RacketInput) {
 
 export async function deleteRacket(id: string) {
   await deleteDoc(doc(db, "rackets", id));
+}
+
+export function subscribeOrgRackets(orgId: string, onData: (rackets: Racket[]) => void): Unsubscribe {
+  return onSnapshot(
+    query(col, where("orgId", "==", orgId)),
+    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Racket)),
+    () => onData([])
+  );
+}
+
+export async function markReminderSent(id: string) {
+  await updateDoc(doc(db, "rackets", id), { reminderSentAt: Timestamp.now() });
 }

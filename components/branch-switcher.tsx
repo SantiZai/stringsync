@@ -39,7 +39,7 @@ export function BranchSwitcher() {
         <SelectItem value="all">Todas las sucursales</SelectItem>
         {shops.map((s) => (
           <SelectItem key={s.id} value={s.id}>
-            {s.name}
+            {s.name}{s.active === false ? " (inactiva)" : ""}
           </SelectItem>
         ))}
       </SelectContent>
