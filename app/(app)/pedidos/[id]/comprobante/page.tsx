@@ -18,9 +18,10 @@ import { balanceOf } from "@/lib/payments";
 import { isStaff } from "@/lib/roles";
 import { normalizePhoneAR } from "@/lib/whatsapp";
 import { APP_NAME } from "@/lib/brand";
-import type { Order, Payment } from "@/types";
+import type { Order, Organization, Payment } from "@/types";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { subscribeOrgById } from "@/lib/firestore/orgs";
 
 // Colores fijos: el comprobante se ve igual en pantalla, en el PDF y en la imagen
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export default function ComprobantePage() {
 
   const [order, setOrder] = useState<Order | null | undefined>(undefined);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [org, setOrg] = useState<Organization | null>(null);
   const shop = useShopById(order?.shopId);
 
   const receiptRef = useRef<HTMLElement>(null);
@@ -61,6 +63,7 @@ export default function ComprobantePage() {
   const shopId = order?.shopId;
   useEffect(() => {
     if (!orgId || !shopId || !staff) return;
+    subscribeOrgById(orgId).then((org: Organization | null) => setOrg(org));
     return subscribeOrderPayments(orgId, shopId, id, setPayments);
   }, [orgId, shopId, id, staff]);
 
@@ -190,7 +193,7 @@ export default function ComprobantePage() {
         className="receipt space-y-3 rounded-xl border border-neutral-300 bg-white p-5 text-sm text-black shadow-sm"
       >
         <header className="space-y-0.5 text-center">
-          <h1 className="text-lg font-semibold">{shopName}</h1>
+          <h1 className="text-lg font-semibold">{org &&org.name}</h1>
           {shop?.address && <p className="text-neutral-600">{shop.address}</p>}
           {shop?.phone && <p className="text-neutral-600">Tel. {shop.phone}</p>}
         </header>
@@ -221,8 +224,7 @@ export default function ComprobantePage() {
         <Divider />
 
         <div className="space-y-1">
-          <Row label="Mano de obra">{money(order.laborPrice)}</Row>
-          {order.stringPrice > 0 && <Row label="Cuerda">{money(order.stringPrice)}</Row>}
+          {order.stringPrice > 0 ? <Row label="Cuerda">{money(order.stringPrice + order.laborPrice)}</Row> : <Row label="Mano de obra">{money(order.laborPrice)}</Row>}
           <div className="flex justify-between pt-1 text-base font-semibold">
             <span>Total</span>
             <span>{money(order.price)}</span>
@@ -248,10 +250,6 @@ export default function ComprobantePage() {
         </div>
 
         <Divider />
-
-        <p className="text-center font-medium">
-          Entrega prometida: {formatDay(order.promisedDate.toDate())}
-        </p>
 
         <footer className="space-y-0.5 pt-1 text-center text-xs text-neutral-600">
           <p>¡Gracias por tu visita!</p>
