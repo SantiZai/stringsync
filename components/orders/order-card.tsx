@@ -29,7 +29,8 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
   const balance = balanceOf(order);
   const canManage = isStaff(appUser?.role);
 
-  async function advance() {
+  // remaining: lo que queda por cobrar al momento de entregar
+  async function advance(remaining: number = balance) {
     if (!next || !appUser) return;
     try {
       await updateOrderStatus(order, next, appUser.uid);
@@ -39,8 +40,8 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
           duration: 10000,
           action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
         });
-      } else if (next === "entregado" && balance > 0) {
-        toast.warning(`El pedido #${order.number} se entregó con ${money(balance)} sin cobrar`);
+      } else if (next === "entregado" && remaining > 0.005) {
+        toast.warning(`El pedido #${order.number} se entregó con ${money(remaining)} sin cobrar`);
       }
     } catch {
       toast.error("No se pudo cambiar el estado");
@@ -103,9 +104,15 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
         order={payOpen ? order : null}
         onClose={() => setPayOpen(false)}
         onPaid={(remaining) => {
-          if (remaining <= 0.005) advance();
+          if (remaining <= 0.005) {
+            advance(0);
+          } else {
+            toast.info(
+              `Cobro registrado. Faltan ${money(remaining)}: el pedido sigue sin entregarse.`
+            );
+          }
         }}
-        extraAction={{ label: "Entregar sin cobrar", onClick: advance }}
+        extraAction={{ label: "Entregar sin cobrar", onClick: () => advance() }}
       />
     </div>
   );
