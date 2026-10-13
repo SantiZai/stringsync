@@ -29,7 +29,7 @@ export const messages = {
     weeks: number
   ) =>
     `Hola ${p.customerName}! Pasaron ${weeks} semanas desde el último encordado de tu ${p.racketLabel}. ` +
-    `¿Querés que te lo dejemos listo? Te esperamos en ${shop}.`,
+    `Te esperamos en ${shop} para poner a punto tu raqueta.`,
 };
 
 export function whatsappLink(phone: string, text: string): string {

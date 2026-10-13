@@ -7,4 +7,4 @@ export const DEFAULT_PAYMENT_METHODS = ["Efectivo", "Transferencia", "Tarjeta", 
 export const DEFAULT_MIN_STOCK = 2;
 
 export const DEFAULT_REMINDER_WEEKS = 8;
-export const REMINDER_SNOOZE_DAYS = 21; // después de avisar, no se vuelve a mostrar por 3 semanas
+export const REMINDER_SNOOZE_DAYS = 7; // después de avisar, no se vuelve a mostrar por 1 semana

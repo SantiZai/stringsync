@@ -124,7 +124,7 @@ export function RemindersPanel({ reminders, weeks, onWeeksChange }: Props) {
                     size="sm"
                     variant="ghost"
                     className="text-muted-foreground"
-                    onClick={() => mark(racket.id, "Lo vas a volver a ver en 3 semanas")}
+                    onClick={() => mark(racket.id, "Lo vas a volver a ver en 1 semana")}
                   >
                     Posponer
                   </Button>
