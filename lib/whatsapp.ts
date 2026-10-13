@@ -25,11 +25,11 @@ export const messages = {
     `sigue esperándote en ${shop}.`,
   reencordado: (
     p: { customerName: string; racketLabel: string },
-    shop: string,
+    orgName: string,
     weeks: number
   ) =>
     `Hola ${p.customerName}! Pasaron ${weeks} semanas desde el último encordado de tu ${p.racketLabel}. ` +
-    `Te esperamos en ${shop} para poner a punto tu raqueta.`,
+    `Te esperamos en ${orgName} para poner a punto tu raqueta.`,
 };
 
 export function whatsappLink(phone: string, text: string): string {

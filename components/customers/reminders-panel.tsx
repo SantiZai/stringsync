@@ -22,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Organization } from "@/types";
+import { useEffect, useState } from "react";
+import { subscribeOrgById } from "@/lib/firestore/orgs";
 
 const OPTIONS = [4, 6, 8, 12, 16];
 
@@ -32,8 +35,15 @@ interface Props {
 }
 
 export function RemindersPanel({ reminders, weeks, onWeeksChange }: Props) {
+  const [org, setOrg] = useState<Organization | null>(null);
+
   const shop = useShop();
   const { shops } = useShops();
+
+  useEffect(() => {
+    if (shop) subscribeOrgById(shop?.orgId).then((organization) => setOrg(organization));
+  }, [shop])
+
 
   async function mark(id: string, text: string) {
     try {
@@ -76,7 +86,7 @@ export function RemindersPanel({ reminders, weeks, onWeeksChange }: Props) {
               customer.phone,
               messages.reencordado(
                 { customerName: customer.name, racketLabel: label },
-                shopName,
+                org ? org.name : shopName,
                 w
               )
             );
