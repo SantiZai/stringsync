@@ -55,6 +55,12 @@ export default function ReportesPage() {
         }}
       />
 
+      {report.refreshing && !report.loading && (
+        <p className="animate-pulse text-xs text-muted-foreground" aria-live="polite">
+          Actualizando…
+        </p>
+      )}
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
         <TabsList className="w-full">
           <TabsTrigger value="ingresos" className="flex-1">

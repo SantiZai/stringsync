@@ -8,6 +8,18 @@ export const money = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
+/** Formato compacto en pesos para etiquetas sobre barras (ej. $12 mil, $1,2 M). */
+export const moneyShort = (n: number) => {
+  if (!Number.isFinite(n)) return "$0";
+  if (Math.abs(n) < 1000) return money(n);
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
+};
+
 export const formatDay = (d: Date) => format(d, "EEE d MMM", { locale: es });
 export const formatDateTime = (d: Date) => format(d, "d/M HH:mm");
 

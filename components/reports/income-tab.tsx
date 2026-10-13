@@ -89,7 +89,10 @@ export function IncomeTab({ payments, prevPayments, orders, period, allBranches 
       </div>
 
       <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
-        <p className="text-sm font-semibold">Cobrado {granularityLabel[granularity]}</p>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold">Cobrado {granularityLabel[granularity]}</p>
+          <p className="text-sm font-semibold text-primary">{money(total)}</p>
+        </div>
         <BarChart data={buckets} />
       </div>
 
