@@ -46,7 +46,7 @@ function Bars({ rows, total }: { rows: [string, number][]; total: number }) {
           </div>
           <div className="h-1.5 rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary"
+              className="h-full rounded-full bg-foreground"
               style={{ width: `${total > 0 ? (amount / total) * 100 : 0}%` }}
             />
           </div>
@@ -187,14 +187,14 @@ export default function CajaPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-sm text-muted-foreground">Cobrado en el día</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight text-primary">{money(total)}</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight">{money(total)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {valid.length} cobro{valid.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-sm text-muted-foreground">Pendiente de cobro</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight">{money(pendingTotal)}</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight text-destructive">{money(pendingTotal)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {pending.length} pedido{pending.length === 1 ? "" : "s"}
           </p>

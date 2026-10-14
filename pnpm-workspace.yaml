@@ -3,3 +3,9 @@ allowBuilds:
   protobufjs: true
   sharp: false
   unrs-resolver: false
+
+# Workaround firebase-admin-node#3181 / jwks-rsa#507:
+# jwks-rsa@4 hace require('jose') pero resuelve jose@6 (solo-ESM) -> ERR_REQUIRE_ESM en Vercel.
+# Se fuerza jose@4 (dual CJS/ESM) solo en esa rama; el resto sigue con jose@6.
+overrides:
+  "jwks-rsa>jose": "4.15.9"

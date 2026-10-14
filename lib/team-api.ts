@@ -9,13 +9,17 @@ type PatchBody =
 
 async function call(method: "POST" | "PATCH", body: unknown) {
   const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("No autenticado. Volvé a ingresar.");
   const res = await fetch("/api/team", {
     method,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? "No se pudo completar la acción");
+  if (!res.ok) {
+    console.error(`[team-api] ${method} /api/team -> ${res.status}`, json);
+    throw new Error(json.error ?? `No se pudo completar la acción (${res.status})`);
+  }
   return json;
 }
 

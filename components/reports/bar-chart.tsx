@@ -48,7 +48,7 @@ export function BarChart({ data }: { data: { label: string; amount: number }[] }
                 className={cn(
                   "h-4 truncate text-center text-[10px] leading-4",
                   showValue ? "font-medium text-foreground" : "text-transparent",
-                  isSelected && "text-primary"
+                  isSelected && "text-foreground"
                 )}
               >
                 {showValue ? moneyShort(d.amount) : "·"}
@@ -57,7 +57,7 @@ export function BarChart({ data }: { data: { label: string; amount: number }[] }
                 <div
                   className={cn(
                     "w-full rounded-t transition-colors",
-                    isSelected ? "bg-primary/70 ring-1 ring-primary" : "bg-primary",
+                    isSelected ? "bg-foreground/70 ring-1 ring-foreground" : "bg-foreground",
                     d.amount === 0 && "bg-muted"
                   )}
                   style={{ height: `${(d.amount / max) * 100}%`, minHeight: d.amount > 0 ? 2 : 0 }}

@@ -11,7 +11,7 @@ export function Bars({ rows, total }: { rows: [string, number][]; total: number 
           </div>
           <div className="h-1.5 rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary"
+              className="h-full rounded-full bg-foreground"
               style={{ width: `${total > 0 ? (amount / total) * 100 : 0}%` }}
             />
           </div>

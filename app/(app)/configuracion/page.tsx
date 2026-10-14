@@ -7,44 +7,29 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/providers/auth-provider";
 import { useShop } from "@/hooks/use-shop";
-import type { Sport } from "@/types";
 import { PageHeader } from "@/components/page-header";
 import { PaymentMethodsCard } from "@/components/settings/payment-methods-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Analytics01Icon, ArrowRight01Icon, Store01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Analytics01Icon, Store01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { BranchRequired } from "@/components/branch-required";
 import { SettingsLink } from "@/components/settings/settings-link";
 
-const sports: { value: Sport; label: string }[] = [
-  { value: "tenis", label: "Tenis" },
-  { value: "padel", label: "Pádel" },
-  { value: "squash", label: "Squash" },
-  { value: "badminton", label: "Bádminton" },
-];
+const SPORT_KEYS = ["tenis", "padel", "squash", "badminton"] as const;
 
 export default function ConfiguracionPage() {
   const { appUser } = useAuth();
   const shop = useShop();
-  const [prices, setPrices] = useState<Record<Sport, string>>({
-    tenis: "",
-    padel: "",
-    squash: "",
-    badminton: "",
-  });
+  const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!shop) return;
-    setPrices({
-      tenis: String(shop.laborPrices?.tenis ?? ""),
-      padel: String(shop.laborPrices?.padel ?? ""),
-      squash: String(shop.laborPrices?.squash ?? ""),
-      badminton: String(shop.laborPrices?.badminton ?? ""),
-    });
+    const lp = shop.laborPrices ?? {};
+    const first =
+      lp.tenis ?? lp.padel ?? lp.squash ?? lp.badminton ?? "";
+    setPrice(first === "" ? "" : String(first));
   }, [shop]);
 
   if (appUser && appUser.role !== "admin") {
@@ -52,19 +37,20 @@ export default function ConfiguracionPage() {
   }
 
   async function save() {
-    if (!appUser) return;
-    const laborPrices: Record<string, number> = {};
-    for (const s of sports) {
-      const n = parseFloat(prices[s.value].replace(",", "."));
-      if (Number.isFinite(n) && n >= 0) laborPrices[s.value] = n;
+    if (!appUser || !shop) return;
+    const n = parseFloat(price.trim().replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error("Ingresá un valor válido para la mano de obra");
+      return;
     }
+    const laborPrices: Record<string, number> = {};
+    for (const key of SPORT_KEYS) laborPrices[key] = n;
     setSaving(true);
     try {
-      // TODO: sacar el !
-      await updateDoc(doc(db, "shops", shop!.id), { laborPrices });
-      toast.success("Precios guardados");
+      await updateDoc(doc(db, "shops", shop.id), { laborPrices });
+      toast.success("Mano de obra guardada");
     } catch {
-      toast.error("No se pudieron guardar los precios");
+      toast.error("No se pudo guardar la mano de obra");
     } finally {
       setSaving(false);
     }
@@ -101,24 +87,30 @@ export default function ConfiguracionPage() {
 
       {
         shop ? (
-          <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {sports.map((s) => (
-                <div key={s.value} className="space-y-2">
-                  <Label htmlFor={`price-${s.value}`}>{s.label}</Label>
+          <div className="space-y-4">
+            <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm md:p-5">
+              <div className="space-y-1">
+                <h2 className="text-base font-semibold">Mano de obra</h2>
+                <p className="text-sm text-muted-foreground">
+                  Se aplica a todos los deportes y pedidos de esta sucursal.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price-labor">Valor de la mano de obra</Label>
+                <div className="flex gap-2">
                   <Input
-                    id={`price-${s.value}`}
+                    id="price-labor"
                     inputMode="decimal"
                     placeholder="0"
-                    value={prices[s.value]}
-                    onChange={(e) => setPrices((p) => ({ ...p, [s.value]: e.target.value }))}
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
                   />
+                  <Button onClick={save} disabled={saving} className="shrink-0">
+                    {saving ? "Guardando…" : "Guardar"}
+                  </Button>
                 </div>
-              ))}
+              </div>
             </div>
-            <Button onClick={save} disabled={saving}>
-              {saving ? "Guardando…" : "Guardar"}
-            </Button>
             <PaymentMethodsCard />
           </div>
         ) : (

@@ -68,7 +68,6 @@ export function IncomeTab({ payments, prevPayments, orders, period, allBranches 
         <Kpi
           label="Cobrado"
           value={money(total)}
-          tone="text-primary"
           hint={
             delta === null ? (
               `${valid.length} cobros`
@@ -79,19 +78,23 @@ export function IncomeTab({ payments, prevPayments, orders, period, allBranches 
             )
           }
         />
-        <Kpi label="Facturado" value={money(billed)} hint="Pedidos creados en el período" />
         <Kpi
           label="Pedidos"
           value={String(active.length)}
           hint={`Ticket promedio ${money(ticket)}`}
         />
-        <Kpi label="Por cobrar" value={money(pending)} hint="Saldo de esos pedidos" />
+        <Kpi
+          label="Por cobrar"
+          value={money(pending)}
+          tone="text-destructive"
+          hint="Saldo de esos pedidos"
+        />
       </div>
 
       <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-sm font-semibold">Cobrado {granularityLabel[granularity]}</p>
-          <p className="text-sm font-semibold text-primary">{money(total)}</p>
+          <p className="text-sm font-semibold">{money(total)}</p>
         </div>
         <BarChart data={buckets} />
       </div>

@@ -12,7 +12,7 @@ export class HttpError extends Error {
 
 export function errorResponse(e: unknown) {
   if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
-  console.error(e);
+  console.error("[api] error interno:", e);
   return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }
 
@@ -26,8 +26,9 @@ export interface Actor {
 // Verifica el token de quien llama y que sea admin o encargado activo
 export async function requireManager(req: Request): Promise<Actor> {
   const header = req.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-  if (!token) throw new HttpError(401, "No autenticado");
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+  if (!token || token === "undefined" || token === "null")
+    throw new HttpError(401, "No autenticado");
 
   let uid: string;
   try {
