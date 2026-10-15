@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Add01Icon,
@@ -14,8 +14,8 @@ import {
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
-import { subscribeCustomer } from "@/lib/firestore/customers";
-import { deleteRacket, subscribeCustomerRackets } from "@/lib/firestore/rackets";
+import { subscribeCustomer, deleteCustomer } from "@/lib/firestore/customers";
+import { deleteRacket, deleteRacketsOfCustomer, subscribeCustomerRackets } from "@/lib/firestore/rackets";
 import { normalizePhoneAR } from "@/lib/whatsapp";
 import type { Customer, Racket, Order } from "@/types";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -24,10 +24,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog";
 import { RacketFormDialog } from "@/components/customers/racket-form-dialog";
 
-import { subscribeCustomerOrders } from "@/lib/firestore/orders";
+import { subscribeCustomerOrders, hasCustomerOrders } from "@/lib/firestore/orders";
 import { formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
-import { fold } from "@/lib/text";
+import { setupSummary } from "@/lib/strings";
 import { Badge } from "@/components/ui/badge";
 
 import {
@@ -50,21 +50,9 @@ const sportLabels: Record<Racket["sport"], string> = {
   badminton: "Bádminton",
 };
 
-// Resumen del encordado sin repetir: si principal y cruzada son iguales
-// se muestra una sola vez (misma cuerda y/o misma tensión).
-function setupSummary(spec: Order["spec"]): string {
-  const main = spec.mainString.trim();
-  const cross = spec.crossString.trim();
-  const sameString = fold(main) === fold(cross);
-  const sameTension = spec.mainTension === spec.crossTension;
-  if (sameString && sameTension) return `${main} · ${spec.mainTension} ${spec.tensionUnit}`;
-  if (sameString) return `${main} · ${spec.mainTension}/${spec.crossTension} ${spec.tensionUnit}`;
-  if (sameTension) return `${main} / ${cross} · ${spec.mainTension} ${spec.tensionUnit}`;
-  return `${main} ${spec.mainTension} / ${cross} ${spec.crossTension} ${spec.tensionUnit}`;
-}
-
 export default function ClienteDetallePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { appUser } = useAuth();
 
   const [customer, setCustomer] = useState<Customer | null | undefined>(undefined);
@@ -75,6 +63,8 @@ export default function ClienteDetallePage() {
   const [editingRacket, setEditingRacket] = useState<Racket | undefined>();
 
   const [racketToDelete, setRacketToDelete] = useState<Racket | null>(null);
+  const [deleteCustomerOpen, setDeleteCustomerOpen] = useState(false);
+  const [deletingCustomer, setDeletingCustomer] = useState(false);
 
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -113,6 +103,30 @@ export default function ClienteDetallePage() {
       toast.error("No se pudo eliminar");
     } finally {
       setRacketToDelete(null);
+    }
+  }
+
+  async function confirmDeleteCustomer() {
+    if (!orgId) return;
+    const target = customer;
+    if (!target) return;
+    setDeletingCustomer(true);
+    try {
+      // Los pedidos no se borran: si tiene historial, no se puede eliminar
+      if (await hasCustomerOrders(orgId, target.id)) {
+        toast.error("No se puede eliminar: este cliente tiene pedidos en el historial");
+        setDeleteCustomerOpen(false);
+        return;
+      }
+      await deleteRacketsOfCustomer(orgId, target.id);
+      await deleteCustomer(target.id);
+      toast.success("Cliente eliminado");
+      router.push("/clientes");
+    } catch {
+      toast.error("No se pudo eliminar el cliente");
+    } finally {
+      setDeletingCustomer(false);
+      setDeleteCustomerOpen(false);
     }
   }
 
@@ -261,17 +275,35 @@ export default function ClienteDetallePage() {
                     {formatDay(o.createdAt.toDate())}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{money(o.price)}</span>
+                <div className="flex shrink-0 flex-col items-end gap-1">
                   <Badge className={`border-0 ${statusMeta[o.status].badge}`}>
                     {statusMeta[o.status].label}
                   </Badge>
+                  <span className="text-sm text-muted-foreground">{money(o.price)}</span>
                 </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {isAdmin && (
+        <section className="space-y-3 rounded-xl border border-destructive/30 bg-card p-4 shadow-sm">
+          <div>
+            <h2 className="text-base font-semibold text-destructive">Zona de peligro</h2>
+            <p className="text-sm text-muted-foreground">
+              Elimina al cliente y sus raquetas. Solo se puede si no tiene pedidos en el historial.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            className="text-destructive"
+            onClick={() => setDeleteCustomerOpen(true)}
+          >
+            Eliminar cliente
+          </Button>
+        </section>
+      )}
 
       <CustomerFormDialog
         open={editingCustomer}
@@ -300,6 +332,27 @@ export default function ClienteDetallePage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteRacket}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteCustomerOpen}
+        onOpenChange={(o) => !o && !deletingCustomer && setDeleteCustomerOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar a {customer.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se van a eliminar sus datos y sus raquetas. Esta acción no se puede deshacer. Si
+              tiene pedidos en el historial, no se puede eliminar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingCustomer}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCustomer} disabled={deletingCustomer}>
+              {deletingCustomer ? "Eliminando…" : "Eliminar"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

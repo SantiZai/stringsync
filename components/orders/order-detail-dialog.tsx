@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
 import { useShopById } from "@/hooks/use-shop";
-import { updateOrderStatus } from "@/lib/firestore/orders";
+import { cancelOrder } from "@/lib/firestore/orders";
 import { formatDateTime, formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
 import { messages, whatsappLink } from "@/lib/whatsapp";
@@ -18,6 +18,8 @@ import { PaymentDialog } from "@/components/payments/payment-dialog";
 import type { Order, Payment } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
@@ -58,6 +60,7 @@ export function OrderDetailDialog({
   const { appUser } = useAuth();
   const shop = useShopById(order?.shopId)
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [returnStock, setReturnStock] = useState(true);
 
   const canManage = isStaff(appUser?.role);
   const [payOpen, setPayOpen] = useState(false);
@@ -73,7 +76,7 @@ export function OrderDetailDialog({
   async function cancel() {
     if (!order || !appUser) return;
     try {
-      await updateOrderStatus(order, "cancelado", appUser.uid);
+      await cancelOrder(appUser, order, { returnStock: order.stringId ? returnStock : false });
       toast.success("Pedido cancelado");
       onClose();
     } catch {
@@ -81,6 +84,13 @@ export function OrderDetailDialog({
     } finally {
       setConfirmCancel(false);
     }
+  }
+
+  // Al abrir la confirmación se sugiere devolver la cuerda solo si todavía
+  // no se usó (recibido o en cola); si ya se encordó, probablemente se gastó.
+  function openCancel() {
+    setReturnStock(order ? ["recibido", "en_cola"].includes(order.status) : true);
+    setConfirmCancel(true);
   }
 
   const shopName = shop?.name ?? "el local";
@@ -194,7 +204,7 @@ export function OrderDetailDialog({
                       size="sm"
                       variant="ghost"
                       className="text-destructive"
-                      onClick={() => setConfirmCancel(true)}
+                      onClick={openCancel}
                     >
                       Cancelar pedido
                     </Button>
@@ -222,6 +232,24 @@ export function OrderDetailDialog({
                 ` Tiene cobros por ${money(order.paidAmount)}: si devolvés el dinero, pedile al administrador que los anule desde Caja.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {order?.stringId && (
+            <div className="flex items-start gap-2 rounded-lg border bg-muted/50 p-3">
+              <Checkbox
+                id="return-stock"
+                checked={returnStock}
+                onCheckedChange={(c) => setReturnStock(c === true)}
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="return-stock" className="text-sm font-medium">
+                  Devolver la cuerda al stock
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Se suma 1 set de {order.spec.mainString} al stock de {shopName}. Si la cuerda ya
+                  se usó, dejalo sin tildar.
+                </p>
+              </div>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Volver</AlertDialogCancel>
             <AlertDialogAction onClick={cancel}>Cancelar pedido</AlertDialogAction>

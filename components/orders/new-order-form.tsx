@@ -16,7 +16,7 @@ import { subscribeCustomerRackets } from "@/lib/firestore/rackets";
 import { createOrder } from "@/lib/firestore/orders";
 import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
 import { formatDay, money, parseAmount } from "@/lib/format";
-import { stringLabel, formatStock, matchCatalogString, stringLabelWithColor } from "@/lib/strings";
+import { stringLabel, formatStock, matchCatalogString, stringLabelWithColor, setupSummary } from "@/lib/strings";
 import { fold, digitsOnly, initials } from "@/lib/text";
 import { messages, whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
@@ -366,9 +366,7 @@ export function NewOrderForm() {
                   {r.brand} {r.model}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  {r.usualSetup
-                    ? `${r.usualSetup.mainString} · ${r.usualSetup.mainTension} ${r.usualSetup.tensionUnit}`
-                    : "Sin configuración habitual"}
+                  {r.usualSetup ? setupSummary(r.usualSetup) : "Sin configuración habitual"}
                 </span>
               </button>
             ))}

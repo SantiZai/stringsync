@@ -1,6 +1,6 @@
 import { DEFAULT_MIN_STOCK } from "@/lib/constants";
 import { fold } from "@/lib/text";
-import type { StringItem, StringStock, StringView } from "@/types";
+import type { StringItem, StringingSpec, StringStock, StringView } from "@/types";
 
 export const stringLabel = (s: Pick<StringItem, "brand" | "model" | "gauge">) =>
   [s.brand, s.model, s.gauge].filter(Boolean).join(" ");
@@ -15,6 +15,19 @@ export const stringLabelWithColor = (
   const color = s.color?.trim();
   return color ? `${base} · ${color}` : base;
 };
+
+// Resumen del encordado sin repetir: si principal y cruzada son iguales
+// se muestra una sola vez (misma cuerda y/o misma tensión).
+export function setupSummary(spec: Pick<StringingSpec, "mainString" | "crossString" | "mainTension" | "crossTension" | "tensionUnit">): string {
+  const main = spec.mainString.trim();
+  const cross = spec.crossString.trim();
+  const sameString = fold(main) === fold(cross);
+  const sameTension = spec.mainTension === spec.crossTension;
+  if (sameString && sameTension) return `${main} · ${spec.mainTension} ${spec.tensionUnit}`;
+  if (sameString) return `${main} · ${spec.mainTension}/${spec.crossTension} ${spec.tensionUnit}`;
+  if (sameTension) return `${main} / ${cross} · ${spec.mainTension} ${spec.tensionUnit}`;
+  return `${main} ${spec.mainTension} / ${cross} ${spec.crossTension} ${spec.tensionUnit}`;
+}
 
 // Busca la cuerda del catálogo para una configuración: primero por link (id),
 // después por nombre (para raquetas guardadas antes del link).

@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   query,
@@ -68,4 +69,8 @@ export async function createCustomer(orgId: string, input: CustomerInput): Promi
 
 export async function updateCustomer(id: string, input: CustomerInput): Promise<void> {
   await updateDoc(doc(db, "customers", id), clean({ ...input }));
+}
+
+export async function deleteCustomer(id: string): Promise<void> {
+  await deleteDoc(doc(db, "customers", id));
 }

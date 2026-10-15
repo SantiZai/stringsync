@@ -3,10 +3,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   query,
   updateDoc,
   where,
+  writeBatch,
   Timestamp,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -49,6 +51,17 @@ export async function updateRacket(id: string, input: RacketInput) {
 
 export async function deleteRacket(id: string) {
   await deleteDoc(doc(db, "rackets", id));
+}
+
+// Borra todas las raquetas de un cliente (al eliminar el cliente)
+export async function deleteRacketsOfCustomer(orgId: string, customerId: string): Promise<void> {
+  const snap = await getDocs(
+    query(col, where("orgId", "==", orgId), where("customerId", "==", customerId))
+  );
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
 }
 
 export function subscribeOrgRackets(orgId: string, onData: (rackets: Racket[]) => void): Unsubscribe {

@@ -2,6 +2,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getCountFromServer,
   onSnapshot,
   query,
   runTransaction,
@@ -67,6 +68,14 @@ export function subscribeCustomerOrders(
     },
     () => onData([])
   );
+}
+
+// ¿El cliente tiene pedidos en la organización? (para no borrarlo con historial)
+export async function hasCustomerOrders(orgId: string, customerId: string): Promise<boolean> {
+  const snap = await getCountFromServer(
+    query(col, where("orgId", "==", orgId), where("customerId", "==", customerId))
+  );
+  return snap.data().count > 0;
 }
 
 // Número correlativo por sucursal + descuento de stock de esa sucursal
@@ -159,8 +168,14 @@ export function subscribeOrdersWithBalance(
   );
 }
 
-// Cancela el pedido y devuelve la cuerda al stock de SU sucursal
-export async function cancelOrder(user: AppUser, order: Order) {
+// Cancela el pedido. Si la cuerda salió del stock y returnStock es true,
+// devuelve 1 set al stock de SU sucursal (con movimiento de devolución).
+export async function cancelOrder(
+  user: AppUser,
+  order: Order,
+  opts?: { returnStock?: boolean }
+) {
+  const returnStock = opts?.returnStock ?? true;
   const orderRef = doc(db, "orders", order.id);
 
   await runTransaction(db, async (tx) => {
@@ -169,8 +184,9 @@ export async function cancelOrder(user: AppUser, order: Order) {
     const cur = snap.data() as Order;
     if (cur.status === "cancelado" || cur.status === "entregado") throw new Error("invalid-status");
 
-    const stringRef = cur.stringId ? doc(db, "strings", cur.stringId) : null;
-    const stockRef = cur.stringId ? doc(db, "stringStock", stockDocId(cur.shopId, cur.stringId)) : null;
+    const wantReturn = returnStock && !!cur.stringId;
+    const stringRef = wantReturn ? doc(db, "strings", cur.stringId!) : null;
+    const stockRef = wantReturn ? doc(db, "stringStock", stockDocId(cur.shopId, cur.stringId!)) : null;
     const stringSnap = stringRef ? await tx.get(stringRef) : null;
     const stockSnap = stockRef ? await tx.get(stockRef) : null;
 
