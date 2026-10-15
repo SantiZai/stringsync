@@ -7,7 +7,7 @@ type PatchBody =
   | { action: "set_active"; uid: string; active: boolean }
   | { action: "reset_password"; uid: string; password: string };
 
-async function call(method: "POST" | "PATCH", body: unknown) {
+async function call(method: "POST" | "PATCH" | "DELETE", body: unknown) {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error("No autenticado. Volvé a ingresar.");
   const res = await fetch("/api/team", {
@@ -32,3 +32,5 @@ export const createMember = (input: {
 }) => call("POST", input);
 
 export const updateMember = (body: PatchBody) => call("PATCH", body);
+
+export const deleteMember = (uid: string) => call("DELETE", { uid });

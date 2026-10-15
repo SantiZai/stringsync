@@ -128,3 +128,27 @@ export async function PATCH(req: Request) {
     return errorResponse(e);
   }
 }
+
+// Elimina la cuenta de Auth y el perfil. Los pedidos, cobros y movimientos
+// quedan intactos en el historial (guardan todo desnormalizado).
+export async function DELETE(req: Request) {
+  try {
+    const actor = await requireManager(req);
+    const parsed = z.object({ uid }).safeParse(await req.json().catch(() => null));
+    if (!parsed.success) throw new HttpError(400, "Datos inválidos");
+    const ref = await loadTarget(actor, parsed.data.uid);
+
+    try {
+      await adminAuth.deleteUser(parsed.data.uid);
+    } catch (e) {
+      // Si la cuenta de Auth ya no existe, igual se borra el perfil
+      if ((e as { code?: string }).code !== "auth/user-not-found") throw e;
+    }
+    await adminAuth.revokeRefreshTokens(parsed.data.uid).catch(() => null);
+    await ref.delete();
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}

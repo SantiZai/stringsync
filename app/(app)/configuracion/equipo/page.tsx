@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/providers/auth-provider";
 import { useShops } from "@/providers/shop-provider";
 import { subscribeTeam } from "@/lib/firestore/team";
-import { updateMember } from "@/lib/team-api";
+import { deleteMember, updateMember } from "@/lib/team-api";
 import { roleLabels } from "@/lib/navigation";
 import { isManager } from "@/lib/roles";
 import { initials } from "@/lib/text";
@@ -48,6 +48,8 @@ export default function EquipoPage() {
   const [editing, setEditing] = useState<AppUser | undefined>();
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<AppUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!orgId || !role) return;
@@ -93,6 +95,20 @@ export default function EquipoPage() {
       toast.error(e instanceof Error ? e.message : "No se pudo actualizar la cuenta");
     } finally {
       setDeactivateTarget(null);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteMember(deleteTarget.uid);
+      toast.success("Integrante eliminado");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo eliminar la cuenta");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   }
 
@@ -200,12 +216,20 @@ export default function EquipoPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-destructive"
+                            className="text-muted-foreground"
                             onClick={() => setDeactivateTarget(m)}
                           >
                             Desactivar
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => setDeleteTarget(m)}
+                        >
+                          Eliminar
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -242,6 +266,24 @@ export default function EquipoPage() {
               onClick={() => deactivateTarget && setActive(deactivateTarget, false)}
             >
               Desactivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar a {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se elimina su cuenta y su acceso para siempre. Sus pedidos, cobros y movimientos
+              quedan en el historial. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Volver</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleting}>
+              {deleting ? "Eliminando…" : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
