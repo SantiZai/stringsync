@@ -16,7 +16,7 @@ import { subscribeCustomerRackets } from "@/lib/firestore/rackets";
 import { createOrder } from "@/lib/firestore/orders";
 import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
 import { formatDay, money, parseAmount } from "@/lib/format";
-import { stringLabel, formatStock } from "@/lib/strings";
+import { stringLabel, formatStock, matchCatalogString, stringLabelWithColor } from "@/lib/strings";
 import { fold, digitsOnly, initials } from "@/lib/text";
 import { messages, whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
@@ -96,7 +96,7 @@ export function NewOrderForm() {
   const { appUser } = useAuth();
   const shop = useShop(); // sucursal activa (null si el admin está en "Todas")
   const { customers } = useCustomers();
-  const { strings } = useStrings();
+  const { strings, loading: stringsLoading } = useStrings();
 
   const activeStrings = useMemo(() => strings.filter((s) => s.active), [strings]);
 
@@ -114,6 +114,8 @@ export function NewOrderForm() {
   const [f, setF] = useState<SpecForm>(emptySpec);
   const patch = (p: Partial<SpecForm>) => setF((prev) => ({ ...prev, ...p }));
   const [stringId, setStringId] = useState<string | null>(null);
+  // Si el usuario eligió el proveedor a mano, no se lo pisamos con el autocompletado
+  const [providerTouched, setProviderTouched] = useState(false);
 
   // Entrega
   const [promised, setPromised] = useState<Date>(() => startOfDay(addDays(new Date(), 1)));
@@ -149,12 +151,13 @@ export function NewOrderForm() {
 
   function pickRacket(r: Racket) {
     const s = r.usualSetup;
-    // Si la cuerda habitual está en el catálogo, se preselecciona con el precio de esta sucursal
-    const match = s
-      ? activeStrings.find((x) => fold(stringLabel(x)) === fold(s.mainString))
-      : undefined;
+    // Si la cuerda habitual está en el catálogo (link por id o por nombre),
+    // va por el local con su precio. Si no la tenemos, queda como traída
+    // por el cliente (con el nombre igual anotado).
+    const match = s ? matchCatalogString(activeStrings, s) : undefined;
 
     setRacketId(r.id);
+    setProviderTouched(false);
     setF({
       mainString: s?.mainString ?? "",
       sameCrossString: s ? s.crossString === s.mainString : true,
@@ -163,7 +166,7 @@ export function NewOrderForm() {
       sameCrossTension: s ? s.crossTension === s.mainTension : true,
       crossTension: s && s.crossTension !== s.mainTension ? String(s.crossTension) : "",
       unit: s?.tensionUnit ?? DEFAULT_TENSION_UNIT,
-      provider: "local",
+      provider: s && !match && !stringsLoading ? "cliente" : "local",
       prestretch: s?.prestretch ?? false,
       notes: s?.notes ?? "",
     });
@@ -188,6 +191,26 @@ export function NewOrderForm() {
     if (rackets.length === 1 && !racketId) pickRacket(rackets[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rackets]);
+
+  // Si el catálogo termina de cargar después de elegir la raqueta, se reevalúa
+  // el proveedor (local si la cuerda habitual está, cliente si no). No pisa
+  // lo que el usuario ya eligió o escribió a mano.
+  useEffect(() => {
+    if (providerTouched || stringsLoading || !racket?.usualSetup) return;
+    const usual = racket.usualSetup.mainString.trim();
+    if (f.mainString.trim() !== usual) return;
+    const match = matchCatalogString(activeStrings, racket.usualSetup);
+    if (match && (f.provider !== "local" || stringId !== match.id)) {
+      patch({ provider: "local" });
+      setStringId(match.id);
+      setStringPrice(String(match.salePrice));
+    } else if (!match && f.provider !== "cliente") {
+      patch({ provider: "cliente" });
+      setStringId(null);
+      setStringPrice("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStrings, stringsLoading, racket?.id, providerTouched]);
 
   // Mano de obra según el deporte y los precios de la sucursal
   useEffect(() => {
@@ -366,6 +389,7 @@ export function NewOrderForm() {
               value={f.provider}
               onValueChange={(v) => {
                 if (!v) return;
+                setProviderTouched(true);
                 patch({ provider: v as SpecForm["provider"] });
                 if (v === "cliente") setStringId(null); // la cuerda del cliente no toca el stock
               }}
@@ -387,13 +411,13 @@ export function NewOrderForm() {
                 <Select value={stringId ?? "otra"} onValueChange={(v) => v && pickCatalogString(v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue>
-                      {catalogString ? stringLabel(catalogString) : "Otra (sin control de stock)"}
+                      {catalogString ? stringLabelWithColor(catalogString) : "Otra (sin control de stock)"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {activeStrings.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {stringLabel(s)} · {s.stock > 0 ? formatStock(s.stock, s.setsPerRoll).main : "sin stock"}
+                        {stringLabelWithColor(s)} · {s.stock > 0 ? formatStock(s.stock, s.setsPerRoll).main : "sin stock"}
                       </SelectItem>
                     ))}
                     <SelectItem value="otra">Otra (sin control de stock)</SelectItem>

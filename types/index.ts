@@ -47,6 +47,9 @@ export interface StringingSpec {
   crossTension: number;
   tensionUnit: "kg" | "lb";
   stringProvidedBy: "local" | "cliente";
+  // link a la cuerda del catálogo (si se eligió desde el catálogo del local).
+  // Si es null, la cuerda es texto libre y se matchea por nombre.
+  stringId?: string | null;
   prestretch?: boolean;
   notes?: string;
 }

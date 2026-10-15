@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
+import { useStrings } from "@/hooks/use-strings";
 import { createRacket, updateRacket, type RacketInput } from "@/lib/firestore/rackets";
+import { fold } from "@/lib/text";
+import { formatStock, stringLabel, stringLabelWithColor } from "@/lib/strings";
 import type { Racket } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -94,7 +97,13 @@ interface Props {
 
 export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Props) {
   const { appUser } = useAuth();
+  const { strings } = useStrings();
   const [saving, setSaving] = useState(false);
+  // Cuerda del catálogo linkeada (null = texto libre / la trae el cliente)
+  const [catalogId, setCatalogId] = useState<string | null>(null);
+
+  const activeStrings = useMemo(() => strings.filter((s) => s.active), [strings]);
+  const linked = catalogId ? (activeStrings.find((x) => x.id === catalogId) ?? null) : null;
 
   const {
     register,
@@ -102,6 +111,7 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
     reset,
     control,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -114,6 +124,7 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
   useEffect(() => {
     if (!open) return;
     const s = racket?.usualSetup;
+    setCatalogId(s?.stringId ?? null);
     reset(
       s
         ? {
@@ -144,6 +155,10 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
     const main = v.mainString.trim();
     const mainTension = toNumber(v.mainTension);
 
+    // El link vale solo si el texto sigue siendo el de la cuerda linkeada
+    const linkValid =
+      !!catalogId && (!linked || fold(stringLabel(linked)) === fold(main));
+
     const input: RacketInput = {
       brand: v.brand.trim(),
       model: v.model.trim(),
@@ -156,6 +171,7 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
           crossTension: v.sameCrossTension ? mainTension : toNumber(v.crossTension),
           tensionUnit: v.tensionUnit,
           stringProvidedBy: "local",
+          stringId: linkValid ? catalogId : null,
           notes: v.notes.trim(),
         }
         : null,
@@ -222,6 +238,41 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
 
           <div className="space-y-4 rounded-lg border p-3">
             <p className="text-sm font-medium">Configuración habitual (opcional)</p>
+
+            {/* Cuerda del local */}
+            <div className="space-y-2">
+              <Label>Cuerda del local</Label>
+              <Select
+                value={catalogId ?? "otra"}
+                onValueChange={(v) => {
+                  if (!v) return;
+                  if (v === "otra") {
+                    setCatalogId(null);
+                    return;
+                  }
+                  const s = activeStrings.find((x) => x.id === v);
+                  if (!s) return;
+                  setCatalogId(s.id);
+                  setValue("mainString", stringLabel(s));
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>{linked ? stringLabelWithColor(linked) : "Otra (texto libre)"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {activeStrings.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {stringLabelWithColor(s)} · {s.stock > 0 ? formatStock(s.stock, s.setsPerRoll).main : "sin stock"}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="otra">Otra (texto libre)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Si la elegís del catálogo queda linkeada: al crear el pedido se carga sola como
+                puesta por el local, con precio y stock.
+              </p>
+            </div>
 
             {/* Cuerdas */}
             <div className="space-y-2">

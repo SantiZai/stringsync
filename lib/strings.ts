@@ -1,8 +1,35 @@
 import { DEFAULT_MIN_STOCK } from "@/lib/constants";
+import { fold } from "@/lib/text";
 import type { StringItem, StringStock, StringView } from "@/types";
 
 export const stringLabel = (s: Pick<StringItem, "brand" | "model" | "gauge">) =>
   [s.brand, s.model, s.gauge].filter(Boolean).join(" ");
+
+// Para mostrar en selectores y listas: agrega el color si hay, para distinguir
+// dos cuerdas iguales que solo difieren en color. No se usa como identidad
+// guardada (esa sigue siendo stringLabel, para no romper datos existentes).
+export const stringLabelWithColor = (
+  s: Pick<StringItem, "brand" | "model" | "gauge" | "color">
+) => {
+  const base = stringLabel(s);
+  const color = s.color?.trim();
+  return color ? `${base} · ${color}` : base;
+};
+
+// Busca la cuerda del catálogo para una configuración: primero por link (id),
+// después por nombre (para raquetas guardadas antes del link).
+export function matchCatalogString(
+  catalog: StringView[],
+  spec: { mainString: string; stringId?: string | null }
+): StringView | undefined {
+  if (spec.stringId) {
+    const byId = catalog.find((x) => x.id === spec.stringId);
+    if (byId) return byId;
+  }
+  const name = spec.mainString.trim();
+  if (!name) return undefined;
+  return catalog.find((x) => fold(stringLabel(x)) === fold(name));
+}
 
 export type StockLevel = "sin_stock" | "bajo" | "ok";
 

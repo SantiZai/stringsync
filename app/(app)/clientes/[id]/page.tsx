@@ -27,6 +27,7 @@ import { RacketFormDialog } from "@/components/customers/racket-form-dialog";
 import { subscribeCustomerOrders } from "@/lib/firestore/orders";
 import { formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
+import { fold } from "@/lib/text";
 import { Badge } from "@/components/ui/badge";
 
 import {
@@ -48,6 +49,19 @@ const sportLabels: Record<Racket["sport"], string> = {
   squash: "Squash",
   badminton: "Bádminton",
 };
+
+// Resumen del encordado sin repetir: si principal y cruzada son iguales
+// se muestra una sola vez (misma cuerda y/o misma tensión).
+function setupSummary(spec: Order["spec"]): string {
+  const main = spec.mainString.trim();
+  const cross = spec.crossString.trim();
+  const sameString = fold(main) === fold(cross);
+  const sameTension = spec.mainTension === spec.crossTension;
+  if (sameString && sameTension) return `${main} · ${spec.mainTension} ${spec.tensionUnit}`;
+  if (sameString) return `${main} · ${spec.mainTension}/${spec.crossTension} ${spec.tensionUnit}`;
+  if (sameTension) return `${main} / ${cross} · ${spec.mainTension} ${spec.tensionUnit}`;
+  return `${main} ${spec.mainTension} / ${cross} ${spec.crossTension} ${spec.tensionUnit}`;
+}
 
 export default function ClienteDetallePage() {
   const { id } = useParams<{ id: string }>();
@@ -213,14 +227,7 @@ export default function ClienteDetallePage() {
 
                 {r.usualSetup ? (
                   <div className="mt-3 rounded-md bg-muted/60 p-3 text-sm">
-                    <p>
-                      <span className="text-muted-foreground">Principal:</span>{" "}
-                      {r.usualSetup.mainString} · {r.usualSetup.mainTension} {r.usualSetup.tensionUnit}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Cruzada:</span>{" "}
-                      {r.usualSetup.crossString} · {r.usualSetup.crossTension} {r.usualSetup.tensionUnit}
-                    </p>
+                    <p>{setupSummary(r.usualSetup)}</p>
                     {r.usualSetup.notes && (
                       <p className="mt-1 text-muted-foreground">{r.usualSetup.notes}</p>
                     )}
@@ -249,9 +256,9 @@ export default function ClienteDetallePage() {
                   <p className="truncate text-sm font-medium">
                     #{o.number} · {o.racketLabel}
                   </p>
+                  <p className="truncate text-sm">{setupSummary(o.spec)}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {formatDay(o.createdAt.toDate())} · {o.spec.mainString} {o.spec.mainTension}{" "}
-                    {o.spec.tensionUnit}
+                    {formatDay(o.createdAt.toDate())}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

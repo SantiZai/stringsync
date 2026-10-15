@@ -163,7 +163,7 @@ export default function CuerdasPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-medium">
-                      {s.brand} {s.model}
+                      {s.brand} {s.model}{s.color?.trim() ? ` · ${s.color.trim()}` : ""}
                     </p>
                     <p className="truncate text-sm text-muted-foreground">
                       {details || "Sin detalles"}

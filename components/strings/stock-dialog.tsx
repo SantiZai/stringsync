@@ -11,7 +11,7 @@ import {
 } from "@/lib/firestore/strings";
 import { formatDateTime, money, parseAmount } from "@/lib/format";
 import { isManager } from "@/lib/roles";
-import { formatStock, stringLabel, unitLabel } from "@/lib/strings";
+import { formatStock, stringLabelWithColor, unitLabel } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import type { StockMovement, StringView } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -149,7 +149,7 @@ export function StockDialog({ item, shopId, onClose }: Props) {
         {item && current && (
           <>
             <DialogHeader>
-              <DialogTitle>{stringLabel(item)}</DialogTitle>
+              <DialogTitle>{stringLabelWithColor(item)}</DialogTitle>
               <DialogDescription>
                 Stock en esta sucursal:{" "}
                 <span className="font-semibold text-foreground">{current.main}</span>
