@@ -9,7 +9,9 @@
     "lint": "eslint",
     "create-org": "node --env-file=.env.local scripts/create-org.mjs",
     "create-shop": "node --env-file=.env.local scripts/create-shop.mjs",
-    "backfill-last-strung": "node --env-file=.env.local scripts/backfill-last-strung.mjs"
+    "backfill-last-strung": "node --env-file=.env.local scripts/backfill-last-strung.mjs",
+    "seed-demo": "node --env-file=.env.local scripts/seed-demo-orders.mjs",
+    "seed-reminders": "node --env-file=.env.local scripts/seed-reminders.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

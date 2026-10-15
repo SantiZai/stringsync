@@ -16,7 +16,7 @@ const sections = [
   {
     title: "1. Qué es StringSync",
     body: [
-      "StringSync es un software para locales de encordado de raquetas (tenis, pádel, squash y bádminton). Incluye pedidos, clientes, catálogo y stock de cuerdas, caja y avisos por WhatsApp.",
+      "StringSync es un software para locales de encordado de raquetas (tenis, squash y bádminton). Incluye pedidos, clientes, catálogo y stock de cuerdas, caja y avisos por WhatsApp.",
       "Estos términos regulan el uso de la landing pública y de la aplicación privada por parte del local cliente y su personal.",
     ],
   },

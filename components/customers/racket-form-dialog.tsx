@@ -37,7 +37,6 @@ import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
 
 const sportLabels = {
   tenis: "Tenis",
-  padel: "Pádel",
   squash: "Squash",
   badminton: "Bádminton",
 } as const;
@@ -48,7 +47,7 @@ const schema = z
   .object({
     brand: z.string().trim().min(1, "Ingresá la marca"),
     model: z.string().trim().min(1, "Ingresá el modelo"),
-    sport: z.enum(["tenis", "padel", "squash", "badminton"]),
+    sport: z.enum(["tenis", "squash", "badminton"]),
     mainString: z.string(),
     sameCrossString: z.boolean(),
     crossString: z.string(),

@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type Sport = "tenis" | "padel" | "squash" | "badminton";
+export type Sport = "tenis" | "squash" | "badminton";
 
 export type Role = "admin" | "encargado" | "mostrador" | "encordador";
 

@@ -45,7 +45,6 @@ import { useScope } from "@/providers/shop-provider";
 
 const sportLabels: Record<Racket["sport"], string> = {
   tenis: "Tenis",
-  padel: "Pádel",
   squash: "Squash",
   badminton: "Bádminton",
 };
@@ -215,7 +214,7 @@ export default function ClienteDetallePage() {
                     <p className="font-medium">
                       {r.brand} {r.model}
                     </p>
-                    <p className="text-xs text-muted-foreground">{sportLabels[r.sport]}</p>
+                    <p className="text-xs text-muted-foreground">{sportLabels[r.sport] ?? r.sport}</p>
                   </div>
                   <div className="flex gap-1">
                     <Button

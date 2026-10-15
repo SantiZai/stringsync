@@ -16,7 +16,7 @@ import { Analytics01Icon, Store01Icon, UserGroupIcon } from "@hugeicons/core-fre
 import { BranchRequired } from "@/components/branch-required";
 import { SettingsLink } from "@/components/settings/settings-link";
 
-const SPORT_KEYS = ["tenis", "padel", "squash", "badminton"] as const;
+const SPORT_KEYS = ["tenis", "squash", "badminton"] as const;
 
 export default function ConfiguracionPage() {
   const { appUser } = useAuth();
@@ -28,7 +28,7 @@ export default function ConfiguracionPage() {
     if (!shop) return;
     const lp = shop.laborPrices ?? {};
     const first =
-      lp.tenis ?? lp.padel ?? lp.squash ?? lp.badminton ?? "";
+      lp.tenis ?? lp.squash ?? lp.badminton ?? "";
     setPrice(first === "" ? "" : String(first));
   }, [shop]);
 

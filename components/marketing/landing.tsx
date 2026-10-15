@@ -106,7 +106,7 @@ export function Landing() {
           <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 md:grid-cols-2 md:items-center md:px-8 md:py-20">
             <div className="space-y-6">
               <div className="flex flex-wrap gap-2">
-                {["Tenis", "Pádel", "Squash", "Bádminton"].map((s) => (
+                {["Tenis", "Squash", "Bádminton"].map((s) => (
                   <Badge key={s} variant="outline" className="rounded-full">
                     {s}
                   </Badge>
@@ -216,7 +216,7 @@ export function Landing() {
 
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { icon: TennisRacketIcon, title: "4 deportes", text: "Tenis, pádel, squash y bádminton." },
+                { icon: TennisRacketIcon, title: "3 deportes", text: "Tenis, squash y bádminton." },
                 { icon: Store01Icon, title: "Multi-local", text: "Sucursales con stock y precios propios." },
                 { icon: Wallet01Icon, title: "Medios AR", text: "Efectivo, transferencia, tarjeta y Mercado Pago." },
               ].map(({ icon, title, text }) => (
