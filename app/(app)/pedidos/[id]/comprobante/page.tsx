@@ -13,7 +13,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/providers/auth-provider";
 import { useShopById } from "@/hooks/use-shop";
 import { subscribeOrderPayments } from "@/lib/firestore/payments";
-import { formatDay, formatFull, money } from "@/lib/format";
+import { formatFull, money } from "@/lib/format";
 import { balanceOf } from "@/lib/payments";
 import { isStaff } from "@/lib/roles";
 import { normalizePhoneAR } from "@/lib/whatsapp";
@@ -164,7 +164,6 @@ export default function ComprobantePage() {
   const s = order.spec;
   const paid = payments.filter((p) => !p.voided);
   const balance = balanceOf(order);
-  const shopName = shop?.name ?? APP_NAME;
 
   return (
     <div className="mx-auto max-w-sm space-y-4">

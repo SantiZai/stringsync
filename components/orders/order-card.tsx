@@ -26,6 +26,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
   const next = nextStatus[order.status];
   const overdue = isOverdue(order);
   const shopName = shop?.name ?? "el local";
+  const shopAddress = shop?.address ?? "el local";
   const balance = balanceOf(order);
   const canManage = isStaff(appUser?.role);
 
@@ -35,7 +36,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
     try {
       await updateOrderStatus(order, next, appUser.uid);
       if (next === "listo") {
-        const link = whatsappLink(order.customerPhone, messages.listo(order, shopName));
+        const link = whatsappLink(order.customerPhone, messages.listo(order, shopAddress));
         toast.success(`Pedido #${order.number} lista`, {
           duration: 10000,
           action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
@@ -89,7 +90,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
         )}
         {order.status === "listo" && isStaff(appUser?.role) && (
           <a
-            href={whatsappLink(order.customerPhone, messages.listo(order, shopName))}
+            href={whatsappLink(order.customerPhone, messages.listo(order, shopAddress))}
             target="_blank"
             rel="noreferrer"
             aria-label="Avisar por WhatsApp"
