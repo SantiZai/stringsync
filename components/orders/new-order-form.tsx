@@ -269,7 +269,7 @@ export function NewOrderForm() {
     setSaving(true);
     try {
       const number = await createOrder(appUser, shop.id, data);
-      const link = whatsappLink(customer.phone, messages.recibido({ ...data, number }, shop.name));
+      const link = whatsappLink(customer.phone, messages.recibido({ ...data, number }, shop.address ? shop.address : "el local"));
       toast.success(`Pedido #${number} creado`, {
         duration: 10000,
         action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },

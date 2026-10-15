@@ -94,6 +94,7 @@ export function OrderDetailDialog({
   }
 
   const shopName = shop?.name ?? "el local";
+  const shopAddress = shop?.address ?? "el local";
   const s = order?.spec;
 
   return (
@@ -184,8 +185,8 @@ export function OrderDetailDialog({
                     href={whatsappLink(
                       order.customerPhone,
                       order.status === "listo"
-                        ? messages.listo(order, shopName)
-                        : messages.recibido(order, shopName)
+                        ? messages.listo(order, shopAddress)
+                        : messages.recibido(order, shopAddress)
                     )}
                     target="_blank"
                     rel="noreferrer"
