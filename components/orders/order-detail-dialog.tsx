@@ -80,7 +80,7 @@ export function OrderDetailDialog({
   async function cancel() {
     if (!order || !appUser) return;
     try {
-      await cancelOrder(appUser, order, { returnStock: order.stringId ? returnStock : false });
+      await cancelOrder(appUser, order, { returnStock: stockReturns.length > 0 && returnStock });
       toast.success("Pedido cancelado");
       onClose();
     } catch {
@@ -105,6 +105,16 @@ export function OrderDetailDialog({
     const m = matchCatalogString(strings, { mainString: name, stringId: stringId ?? null });
     return m ? stringLabelWithColor(m) : name;
   }
+
+  // Cuerdas del catálogo que salieron del stock (se devuelven al cancelar)
+  const stockReturns = order
+    ? [
+        ...(order.stringId ? [{ id: order.stringId, name: order.spec.mainString }] : []),
+        ...(order.crossStringId && order.crossStringId !== order.stringId
+          ? [{ id: order.crossStringId, name: order.spec.crossString }]
+          : []),
+      ]
+    : [];
 
   return (
     <>
@@ -142,13 +152,25 @@ export function OrderDetailDialog({
                       {s.tensionUnit}
                     </Row>
                     <Row label="Cuerda cruzada">
-                      {stringColor(s.crossString)} · {s.crossTension} {s.tensionUnit}
+                      {stringColor(s.crossString, order.crossStringId ?? s.crossStringId)} ·{" "}
+                      {s.crossTension} {s.tensionUnit}
                     </Row>
                   </>
                 )}
-                <Row label="Origen">
-                  {s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}
-                </Row>
+                {s.crossStringProvidedBy && s.crossStringProvidedBy !== s.stringProvidedBy ? (
+                  <>
+                    <Row label="Origen principal">
+                      {s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}
+                    </Row>
+                    <Row label="Origen cruzada">
+                      {s.crossStringProvidedBy === "local" ? "Del local" : "Del cliente"}
+                    </Row>
+                  </>
+                ) : (
+                  <Row label="Origen">
+                    {s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}
+                  </Row>
+                )}
                 {s.prestretch && <Row label="Pre-estiramiento">Sí</Row>}
                 {s.notes && <Row label="Notas">{s.notes}</Row>}
                 <Row label="Entrega prometida">{formatDay(order.promisedDate.toDate())}</Row>
@@ -257,7 +279,7 @@ export function OrderDetailDialog({
                 ` Tiene cobros por ${money(order.paidAmount)}: si devolvés el dinero, pedile al administrador que los anule desde Caja.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {order?.stringId && (
+          {stockReturns.length > 0 && (
             <div className="flex items-start gap-2 rounded-lg border bg-muted/50 p-3">
               <Checkbox
                 id="return-stock"
@@ -266,11 +288,14 @@ export function OrderDetailDialog({
               />
               <div className="space-y-0.5">
                 <Label htmlFor="return-stock" className="text-sm font-medium">
-                  Devolver la cuerda al stock
+                  {stockReturns.length > 1
+                    ? "Devolver las cuerdas al stock"
+                    : "Devolver la cuerda al stock"}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Se suma 1 set de {order.spec.mainString} al stock de {shopName}. Si la cuerda ya
-                  se usó, dejalo sin tildar.
+                  Se suma{" "}
+                  {stockReturns.map((r) => `1 set de ${stringColor(r.name, r.id)}`).join(" y ")} al
+                  stock de {shopName}. Si la cuerda ya se usó, dejalo sin tildar.
                 </p>
               </div>
             </div>

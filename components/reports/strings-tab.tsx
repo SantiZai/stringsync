@@ -14,14 +14,19 @@ interface Props {
 }
 
 export function StringsTab({ orders, catalog, isAdmin }: Props) {
-  const { rows, local, client } = useMemo(() => summarizeStrings(orders, catalog), [orders, catalog]);
+  const { rows, local, client, jobs } = useMemo(
+    () => summarizeStrings(orders, catalog),
+    [orders, catalog]
+  );
   const sorted = useMemo(() => [...rows].sort((a, b) => b.uses - a.uses), [rows]);
   const maxUses = sorted[0]?.uses ?? 1;
-  const totalJobs = local + client;
-  const pct = (n: number) => (totalJobs ? `${Math.round((n / totalJobs) * 100)}%` : "0%");
+  // local/client son usos de cuerda (un pedido puede usar las dos): los
+  // porcentajes son sobre cuerdas, y "Encordados" son pedidos.
+  const totalUses = local + client;
+  const pct = (n: number) => (totalUses ? `${Math.round((n / totalUses) * 100)}%` : "0%");
 
   const kpis = [
-    { label: "Encordados", value: String(totalJobs) },
+    { label: "Encordados", value: String(jobs) },
     { label: "Cuerda del local", value: `${local} · ${pct(local)}` },
     { label: "Cuerda del cliente", value: `${client} · ${pct(client)}` },
   ];

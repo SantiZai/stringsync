@@ -26,6 +26,8 @@ export interface NewOrderInput {
   customerName: string;
   customerPhone: string;
   stringId: string | null
+  // segunda cuerda del catálogo, solo si la cruzada es distinta de la principal
+  crossStringId: string | null;
   racketId: string;
   racketLabel: string;
   spec: StringingSpec;
@@ -78,7 +80,9 @@ export async function hasCustomerOrders(orgId: string, customerId: string): Prom
   return snap.data().count > 0;
 }
 
-// Número correlativo por sucursal + descuento de stock de esa sucursal
+// Número correlativo por sucursal + descuento de stock de esa sucursal.
+// Si la cruzada es distinta y también salió del local, descuenta 1 set de
+// cada cuerda (dos movimientos de consumo).
 export async function createOrder(
   user: AppUser,
   shopId: string,
@@ -86,26 +90,37 @@ export async function createOrder(
 ): Promise<number> {
   const counterRef = doc(db, "counters", shopId);
   const orderRef = doc(col);
-  const stringRef = input.stringId ? doc(db, "strings", input.stringId) : null;
-  const stockRef = input.stringId ? doc(db, "stringStock", stockDocId(shopId, input.stringId)) : null;
+  const stringIds = [...new Set([input.stringId, input.crossStringId].filter((x): x is string => !!x))];
 
   return runTransaction(db, async (tx) => {
     // Todas las lecturas van antes que las escrituras
     const counter = await tx.get(counterRef);
-    const stringSnap = stringRef ? await tx.get(stringRef) : null;
-    const stockSnap = stockRef ? await tx.get(stockRef) : null;
+    const refs = stringIds.map((id) => ({
+      stringRef: doc(db, "strings", id),
+      stockRef: doc(db, "stringStock", stockDocId(shopId, id)),
+    }));
+    const snaps = await Promise.all(
+      refs.map(async (r) => ({
+        string: await tx.get(r.stringRef),
+        stock: await tx.get(r.stockRef),
+      }))
+    );
 
     const number = (counter.exists() ? (counter.data().orders as number) : 0) + 1;
     const now = Timestamp.now();
 
     tx.update(doc(db, "rackets", input.racketId), { lastStrungAt: now, lastShopId: shopId });
 
-    let stringId: string | null = null;
-    if (stringRef && stockRef && stringSnap?.exists()) {
-      const item = { id: stringRef.id, ...(stringSnap.data() as Omit<StringItem, "id">) };
-      stringId = item.id;
+    const consumed = new Set<string>();
+    refs.forEach(({ stringRef, stockRef }, i) => {
+      const stringSnap = snaps[i].string;
+      const stockSnap = snaps[i].stock;
+      if (!stringSnap.exists()) return;
 
-      if (stockSnap?.exists()) {
+      const item = { id: stringRef.id, ...(stringSnap.data() as Omit<StringItem, "id">) };
+      consumed.add(item.id);
+
+      if (stockSnap.exists()) {
         tx.update(stockRef, { stock: (stockSnap.data() as StringStock).stock - 1 });
       } else {
         tx.set(stockRef, {
@@ -123,12 +138,14 @@ export async function createOrder(
           orderNumber: number,
         })
       );
-    }
+    });
 
     tx.set(counterRef, { orgId: user.orgId, shopId, orders: number });
     tx.set(orderRef, {
       ...input,
-      stringId,
+      stringId: input.stringId && consumed.has(input.stringId) ? input.stringId : null,
+      crossStringId:
+        input.crossStringId && consumed.has(input.crossStringId) ? input.crossStringId : null,
       promisedDate: Timestamp.fromDate(input.promisedDate),
       orgId: user.orgId,
       shopId,
@@ -168,8 +185,9 @@ export function subscribeOrdersWithBalance(
   );
 }
 
-// Cancela el pedido. Si la cuerda salió del stock y returnStock es true,
-// devuelve 1 set al stock de SU sucursal (con movimiento de devolución).
+// Cancela el pedido. Si las cuerdas salieron del stock y returnStock es true,
+// devuelve 1 set por cada cuerda al stock de SU sucursal (con movimiento de
+// devolución por cada una).
 export async function cancelOrder(
   user: AppUser,
   order: Order,
@@ -184,20 +202,32 @@ export async function cancelOrder(
     const cur = snap.data() as Order;
     if (cur.status === "cancelado" || cur.status === "entregado") throw new Error("invalid-status");
 
-    const wantReturn = returnStock && !!cur.stringId;
-    const stringRef = wantReturn ? doc(db, "strings", cur.stringId!) : null;
-    const stockRef = wantReturn ? doc(db, "stringStock", stockDocId(cur.shopId, cur.stringId!)) : null;
-    const stringSnap = stringRef ? await tx.get(stringRef) : null;
-    const stockSnap = stockRef ? await tx.get(stockRef) : null;
+    const stringIds = returnStock
+      ? [...new Set([cur.stringId, cur.crossStringId].filter((x): x is string => !!x))]
+      : [];
+    const refs = stringIds.map((id) => ({
+      stringRef: doc(db, "strings", id),
+      stockRef: doc(db, "stringStock", stockDocId(cur.shopId, id)),
+    }));
+    const snaps = await Promise.all(
+      refs.map(async (r) => ({
+        string: await tx.get(r.stringRef),
+        stock: await tx.get(r.stockRef),
+      }))
+    );
 
     tx.update(orderRef, {
       status: "cancelado",
       statusHistory: arrayUnion({ status: "cancelado", at: Timestamp.now(), by: user.uid }),
     });
 
-    if (stringRef && stockRef && stringSnap?.exists()) {
+    refs.forEach(({ stringRef, stockRef }, i) => {
+      const stringSnap = snaps[i].string;
+      const stockSnap = snaps[i].stock;
+      if (!stringSnap.exists()) return;
+
       const item = { id: stringRef.id, ...(stringSnap.data() as Omit<StringItem, "id">) };
-      if (stockSnap?.exists()) {
+      if (stockSnap.exists()) {
         tx.update(stockRef, { stock: (stockSnap.data() as StringStock).stock + 1 });
       } else {
         tx.set(stockRef, {
@@ -215,6 +245,6 @@ export async function cancelOrder(
           orderNumber: order.number,
         })
       );
-    }
+    });
   });
 }

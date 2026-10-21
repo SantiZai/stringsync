@@ -215,7 +215,18 @@ export default function ComprobantePage() {
           <Row label="Cuerda cruzada">
             {s.crossString} · {s.crossTension} {s.tensionUnit}
           </Row>
-          <Row label="Cuerda">{s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}</Row>
+          {s.crossStringProvidedBy && s.crossStringProvidedBy !== s.stringProvidedBy ? (
+            <>
+              <Row label="Origen principal">
+                {s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}
+              </Row>
+              <Row label="Origen cruzada">
+                {s.crossStringProvidedBy === "local" ? "Del local" : "Del cliente"}
+              </Row>
+            </>
+          ) : (
+            <Row label="Cuerda">{s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}</Row>
+          )}
           {s.prestretch && <Row label="Pre-estiramiento">Sí</Row>}
           {s.notes && <Row label="Notas">{s.notes}</Row>}
         </div>

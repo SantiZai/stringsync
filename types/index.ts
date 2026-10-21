@@ -50,6 +50,10 @@ export interface StringingSpec {
   // link a la cuerda del catálogo (si se eligió desde el catálogo del local).
   // Si es null, la cuerda es texto libre y se matchea por nombre.
   stringId?: string | null;
+  // Segunda cuerda: solo presente cuando la cruzada es distinta de la principal.
+  // Si no están, la cruzada se repite con la principal (un solo set).
+  crossStringProvidedBy?: "local" | "cliente";
+  crossStringId?: string | null;
   prestretch?: boolean;
   notes?: string;
 }
@@ -111,6 +115,8 @@ export interface Order {
   customerName: string; // desnormalizado para listar rápido
   customerPhone: string;
   stringId?: string | null; // cuerda del catálogo usada (descuenta stock)
+  // segunda cuerda del catálogo, solo si la cruzada es distinta de la principal
+  crossStringId?: string | null;
   racketId: string;
   racketLabel: string; // "Babolat Pure Drive"
   spec: StringingSpec;

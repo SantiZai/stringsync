@@ -6,8 +6,9 @@ export const stringLabel = (s: Pick<StringItem, "brand" | "model" | "gauge">) =>
   [s.brand, s.model, s.gauge].filter(Boolean).join(" ");
 
 // Para mostrar en selectores y listas: agrega el color si hay, para distinguir
-// dos cuerdas iguales que solo difieren en color. No se usa como identidad
-// guardada (esa sigue siendo stringLabel, para no romper datos existentes).
+// dos cuerdas iguales que solo difieren en color. También se guarda como
+// identidad en specs/pedidos nuevos (los datos viejos sin color siguen
+// matcheando, ver matchesStringText).
 export const stringLabelWithColor = (
   s: Pick<StringItem, "brand" | "model" | "gauge" | "color">
 ) => {
@@ -15,6 +16,16 @@ export const stringLabelWithColor = (
   const color = s.color?.trim();
   return color ? `${base} · ${color}` : base;
 };
+
+// ¿El texto guardado corresponde a esta cuerda del catálogo? Acepta el label
+// con o sin color, porque los setups/pedidos viejos se guardaron sin color.
+export function matchesStringText(
+  item: Pick<StringItem, "brand" | "model" | "gauge" | "color">,
+  name: string
+): boolean {
+  const n = fold(name);
+  return fold(stringLabel(item)) === n || fold(stringLabelWithColor(item)) === n;
+}
 
 // Resumen del encordado sin repetir: si principal y cruzada son iguales
 // se muestra una sola vez (misma cuerda y/o misma tensión).
@@ -41,7 +52,7 @@ export function matchCatalogString(
   }
   const name = spec.mainString.trim();
   if (!name) return undefined;
-  return catalog.find((x) => fold(stringLabel(x)) === fold(name));
+  return catalog.find((x) => matchesStringText(x, name));
 }
 
 export type StockLevel = "sin_stock" | "bajo" | "ok";

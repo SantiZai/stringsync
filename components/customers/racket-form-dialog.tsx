@@ -9,8 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/providers/auth-provider";
 import { useStrings } from "@/hooks/use-strings";
 import { createRacket, updateRacket, type RacketInput } from "@/lib/firestore/rackets";
-import { fold } from "@/lib/text";
-import { formatStock, stringLabel, stringLabelWithColor } from "@/lib/strings";
+import { formatStock, matchesStringText, stringLabelWithColor } from "@/lib/strings";
 import type { Racket } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -156,7 +155,7 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
 
     // El link vale solo si el texto sigue siendo el de la cuerda linkeada
     const linkValid =
-      !!catalogId && (!linked || fold(stringLabel(linked)) === fold(main));
+      !!catalogId && (!linked || matchesStringText(linked, main));
 
     const input: RacketInput = {
       brand: v.brand.trim(),
@@ -252,7 +251,7 @@ export function RacketFormDialog({ open, onOpenChange, customerId, racket }: Pro
                   const s = activeStrings.find((x) => x.id === v);
                   if (!s) return;
                   setCatalogId(s.id);
-                  setValue("mainString", stringLabel(s));
+                  setValue("mainString", stringLabelWithColor(s));
                 }}
               >
                 <SelectTrigger className="w-full">

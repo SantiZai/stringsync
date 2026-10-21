@@ -11,7 +11,7 @@ import {
   subMonths,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { stringLabel } from "@/lib/strings";
+import { stringLabelWithColor } from "@/lib/strings";
 import { fold } from "@/lib/text";
 import type { Order, StringItem } from "@/types";
 
@@ -144,31 +144,63 @@ export function summarizeStrings(orders: Order[], catalog: StringItem[]) {
   const map = new Map<string, StringRow>();
   let local = 0;
   let client = 0;
+  let jobs = 0;
+
+  const rowKey = (id: string | null, name: string) => {
+    const item = id ? byId.get(id) : undefined;
+    return { item, key: item ? item.id : `txt:${fold(name)}` };
+  };
 
   for (const o of orders) {
     if (o.status === "cancelado") continue;
-    if (o.spec.stringProvidedBy === "cliente") {
-      client += 1;
-      continue;
-    }
-    local += 1;
+    jobs += 1;
 
-    const item = o.stringId ? byId.get(o.stringId) : undefined;
-    const key = item ? item.id : `txt:${fold(o.spec.mainString)}`;
-    const row = map.get(key) ?? {
-      key,
-      label: item ? stringLabel(item) : o.spec.mainString,
-      uses: 0,
-      revenue: 0,
-      cost: 0,
-      hasCost: !!item && item.costPrice > 0,
-      inCatalog: !!item,
-    };
-    row.uses += 1;
-    row.revenue += o.stringPrice;
-    if (item) row.cost += item.costPrice;
-    map.set(key, row);
+    // Usos de cuerda: la principal y, solo cuando la cruzada es distinta, la
+    // segunda. Los pedidos viejos no registran la cruzada, así que no cuentan.
+    const uses: { id: string | null; name: string; provider: "local" | "cliente" }[] = [
+      { id: o.stringId ?? null, name: o.spec.mainString, provider: o.spec.stringProvidedBy },
+    ];
+    if (o.spec.crossStringProvidedBy && fold(o.spec.crossString) !== fold(o.spec.mainString)) {
+      uses.push({
+        id: o.crossStringId ?? null,
+        name: o.spec.crossString,
+        provider: o.spec.crossStringProvidedBy,
+      });
+    }
+
+    const localUses = uses.filter((u) => u.provider === "local");
+    for (const u of uses) {
+      if (u.provider === "cliente") {
+        client += 1;
+        continue;
+      }
+      local += 1;
+
+      const { item, key } = rowKey(u.id, u.name);
+      const row = map.get(key) ?? {
+        key,
+        label: item ? stringLabelWithColor(item) : u.name,
+        uses: 0,
+        revenue: 0,
+        cost: 0,
+        hasCost: !!item && item.costPrice > 0, // solo si es del catálogo y tiene costo cargado
+        inCatalog: !!item,
+      };
+      row.uses += 1;
+      if (item) row.cost += item.costPrice;
+      map.set(key, row);
+    }
+
+    // El pedido cobra una sola cuerda: la más cara de las que puso el local
+    if (localUses.length > 0) {
+      const priceOf = (u: (typeof localUses)[number]) => (u.id ? byId.get(u.id)?.salePrice ?? 0 : 0);
+      let target = localUses[0];
+      for (const u of localUses) if (priceOf(u) > priceOf(target)) target = u;
+      const { key } = rowKey(target.id, target.name);
+      const row = map.get(key);
+      if (row) row.revenue += o.stringPrice;
+    }
   }
 
-  return { rows: [...map.values()], local, client };
+  return { rows: [...map.values()], local, client, jobs };
 }
