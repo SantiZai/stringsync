@@ -8,12 +8,15 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/providers/auth-provider";
 import { useShopById } from "@/hooks/use-shop";
+import { useStrings } from "@/hooks/use-strings";
 import { cancelOrder } from "@/lib/firestore/orders";
 import { formatDateTime, formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
 import { orderMessage, whatsappLink } from "@/lib/whatsapp";
 import { subscribeOrderPayments } from "@/lib/firestore/payments";
 import { balanceOf } from "@/lib/payments";
+import { matchCatalogString, stringLabelWithColor } from "@/lib/strings";
+import { fold } from "@/lib/text";
 import { PaymentDialog } from "@/components/payments/payment-dialog";
 import type { Order, Payment } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +62,7 @@ export function OrderDetailDialog({
 }) {
   const { appUser } = useAuth();
   const shop = useShopById(order?.shopId)
+  const { strings } = useStrings();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [returnStock, setReturnStock] = useState(true);
 
@@ -96,6 +100,12 @@ export function OrderDetailDialog({
   const shopName = shop?.name ?? "el local";
   const s = order?.spec;
 
+  // La cuerda con su color si está en el catálogo (por link o por nombre)
+  function stringColor(name: string, stringId?: string | null) {
+    const m = matchCatalogString(strings, { mainString: name, stringId: stringId ?? null });
+    return m ? stringLabelWithColor(m) : name;
+  }
+
   return (
     <>
       <Dialog open={order !== null} onOpenChange={(o) => !o && onClose()}>
@@ -115,13 +125,28 @@ export function OrderDetailDialog({
               </DialogHeader>
 
               <div className="space-y-2">
-                <Row label="Cuerda principal">
-                  {s.mainString} · {s.mainTension} {s.tensionUnit}
-                </Row>
-                <Row label="Cuerda cruzada">
-                  {s.crossString} · {s.crossTension} {s.tensionUnit}
-                </Row>
-                <Row label="Cuerda">
+                {/* Si principal y cruzada son iguales, va simple: una sola
+                    cuerda y una sola tensión. Si difieren, cada una aparte. */}
+                {fold(s.mainString) === fold(s.crossString) &&
+                s.mainTension === s.crossTension ? (
+                  <>
+                    <Row label="Cuerda">{stringColor(s.mainString, order.stringId ?? s.stringId)}</Row>
+                    <Row label="Tensión">
+                      {s.mainTension} {s.tensionUnit}
+                    </Row>
+                  </>
+                ) : (
+                  <>
+                    <Row label="Cuerda principal">
+                      {stringColor(s.mainString, order.stringId ?? s.stringId)} · {s.mainTension}{" "}
+                      {s.tensionUnit}
+                    </Row>
+                    <Row label="Cuerda cruzada">
+                      {stringColor(s.crossString)} · {s.crossTension} {s.tensionUnit}
+                    </Row>
+                  </>
+                )}
+                <Row label="Origen">
                   {s.stringProvidedBy === "local" ? "Del local" : "Del cliente"}
                 </Row>
                 {s.prestretch && <Row label="Pre-estiramiento">Sí</Row>}
@@ -156,7 +181,9 @@ export function OrderDetailDialog({
 
               <div className="space-y-2">
                 <Row label="Mano de obra">{money(order.laborPrice)}</Row>
-                {order.stringPrice > 0 && <Row label="Cuerda">{money(order.stringPrice)}</Row>}
+                {order.stringPrice > 0 && (
+                  <Row label="Cuerda (precio)">{money(order.stringPrice)}</Row>
+                )}
                 <Row label="Total">{money(order.price)}</Row>
                 <Row label="Pago">
                   {order.paymentStatus === "pagado"
