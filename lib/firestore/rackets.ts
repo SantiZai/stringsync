@@ -49,6 +49,12 @@ export async function updateRacket(id: string, input: RacketInput) {
   await updateDoc(doc(db, "rackets", id), { ...input });
 }
 
+// Actualiza solo la configuración habitual (ej: al confirmar un pedido
+// con una config distinta a la guardada)
+export async function updateRacketSetup(id: string, setup: StringingSpec) {
+  await updateDoc(doc(db, "rackets", id), { usualSetup: setup });
+}
+
 export async function deleteRacket(id: string) {
   await deleteDoc(doc(db, "rackets", id));
 }

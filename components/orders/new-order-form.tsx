@@ -12,8 +12,8 @@ import { useAuth } from "@/providers/auth-provider";
 import { useCustomers } from "@/hooks/use-customers";
 import { useShop } from "@/hooks/use-shop";
 import { useStrings } from "@/hooks/use-strings";
-import { subscribeCustomerRackets } from "@/lib/firestore/rackets";
-import { createOrder } from "@/lib/firestore/orders";
+import { subscribeCustomerRackets, updateRacketSetup } from "@/lib/firestore/rackets";
+import { createOrder, type NewOrderInput } from "@/lib/firestore/orders";
 import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
 import { formatDay, money, parseAmount } from "@/lib/format";
 import { stringLabel, formatStock, matchCatalogString, stringLabelWithColor, setupSummary } from "@/lib/strings";
@@ -40,6 +40,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -75,6 +83,23 @@ const emptySpec: SpecForm = {
   prestretch: false,
   notes: "",
 };
+
+// Compara la config del pedido con la habitual de la raqueta. Ignora el
+// proveedor y la cuerda del catálogo: pickRacket los deriva del match con
+// el catálogo (no se guardan tal cual), así no preguntamos por cambios que
+// el usuario no hizo.
+function setupDiffers(a: StringingSpec, b: StringingSpec) {
+  const t = (s?: string) => fold((s ?? "").trim());
+  return (
+    t(a.mainString) !== t(b.mainString) ||
+    t(a.crossString) !== t(b.crossString) ||
+    a.mainTension !== b.mainTension ||
+    a.crossTension !== b.crossTension ||
+    a.tensionUnit !== b.tensionUnit ||
+    a.prestretch !== b.prestretch ||
+    t(a.notes) !== t(b.notes)
+  );
+}
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -125,6 +150,13 @@ export function NewOrderForm() {
   const [labor, setLabor] = useState("");
   const [stringPrice, setStringPrice] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Confirmación al confirmar el pedido: si la config cambió respecto de la
+  // habitual de la raqueta, preguntamos si queremos actualizarla. El diálogo
+  // está abierto mientras `pending` tenga datos.
+  const [pending, setPending] = useState<NewOrderInput | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"create" | "update" | null>(null);
+  const [confirmStep, setConfirmStep] = useState<"setup" | "order">("order");
 
   const customer = customers.find((c) => c.id === customerId) ?? null;
   const racket = rackets.find((r) => r.id === racketId) ?? null;
@@ -230,6 +262,37 @@ export function NewOrderForm() {
   ].map((o) => ({ ...o, date: startOfDay(addDays(new Date(), o.days)) }));
   const isQuick = quickDates.some((o) => isSameDay(o.date, promised));
 
+  async function finish(data: NewOrderInput, updateSetup: boolean) {
+    if (!appUser || !shop) return;
+
+    setConfirmAction(updateSetup ? "update" : "create");
+    setConfirmStep(updateSetup ? "setup" : "order");
+    setSaving(true);
+    let phase: "setup" | "order" = updateSetup ? "setup" : "order";
+
+    try {
+      if (updateSetup) {
+        await updateRacketSetup(data.racketId, { ...data.spec, stringId: data.stringId });
+        phase = "order";
+        setConfirmStep("order");
+      }
+      const number = await createOrder(appUser, shop.id, data);
+      const link = whatsappLink(data.customerPhone, orderMessage("recibido", { ...data, number }, shop));
+      toast.success(`Pedido #${number} creado`, {
+        duration: 10000,
+        action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
+      });
+      router.push("/pedidos");
+    } catch {
+      toast.error(
+        phase === "setup" ? "No se pudo actualizar la configuración" : "No se pudo crear el pedido"
+      );
+      setSaving(false);
+      setConfirmAction(null);
+      setConfirmStep("order");
+    }
+  }
+
   async function submit() {
     if (!appUser || !shop || !customer || !racket) return;
 
@@ -252,7 +315,7 @@ export function NewOrderForm() {
       notes: f.notes.trim(),
     };
 
-    const data = {
+    const data: NewOrderInput = {
       customerId: customer.id,
       customerName: customer.name,
       customerPhone: customer.phone,
@@ -266,19 +329,19 @@ export function NewOrderForm() {
       promisedDate: promised,
     };
 
-    setSaving(true);
-    try {
-      const number = await createOrder(appUser, shop.id, data);
-      const link = whatsappLink(customer.phone, orderMessage("recibido", { ...data, number }, shop));
-      toast.success(`Pedido #${number} creado`, {
-        duration: 10000,
-        action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
-      });
-      router.push("/pedidos");
-    } catch {
-      toast.error("No se pudo crear el pedido");
-      setSaving(false);
+    // Si la config del pedido difiere de la habitual de la raqueta (o la
+    // raqueta todavía no tiene), recién ahí, al confirmar, preguntamos.
+    if (!racket.usualSetup || setupDiffers(spec, racket.usualSetup)) {
+      setPending(data);
+      return;
     }
+
+    await finish(data, false);
+  }
+
+  function changeConfirm(open: boolean) {
+    if (saving) return; // mientras carga no se cierra
+    if (!open) setPending(null);
   }
 
   // Después de todos los hooks: el admin en "Todas" tiene que elegir una sucursal
@@ -648,6 +711,77 @@ export function NewOrderForm() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* ¿Actualizar la configuración habitual de la raqueta? Solo aparece
+          al confirmar el pedido y solo si la config cambió (o no existía). */}
+      <AlertDialog open={!!pending} onOpenChange={changeConfirm}>
+        <AlertDialogContent>
+          {pending && racket && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {racket.usualSetup
+                    ? `¿Actualizar la configuración de ${racket.brand} ${racket.model}?`
+                    : `¿Guardar la configuración de ${racket.brand} ${racket.model}?`}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {racket.usualSetup
+                    ? "Cambiaste la configuración con la que se autocompletó el pedido. ¿Querés guardarla como la habitual de esta raqueta?"
+                    : "Esta raqueta todavía no tiene configuración habitual. ¿Querés guardar la de este pedido para que se autocomplete la próxima vez?"}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <div className="space-y-1.5 rounded-lg border bg-muted/50 p-3 text-sm">
+                {racket.usualSetup && (
+                  <div className="flex gap-3">
+                    <span className="w-16 shrink-0 text-muted-foreground">Actual</span>
+                    <span className="min-w-0 break-words">{setupSummary(racket.usualSetup)}</span>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <span className="w-16 shrink-0 text-muted-foreground">Nueva</span>
+                  <span className="min-w-0 break-words font-medium">
+                    {setupSummary(pending.spec)}
+                  </span>
+                </div>
+                {pending.spec.prestretch !== (racket.usualSetup?.prestretch ?? false) && (
+                  <div className="flex gap-3">
+                    <span className="w-16 shrink-0 text-muted-foreground">Pre-est.</span>
+                    <span className="min-w-0">
+                      {pending.spec.prestretch ? "Con pre-estiramiento" : "Sin pre-estiramiento"}
+                    </span>
+                  </div>
+                )}
+                {fold(pending.spec.notes ?? "") !== fold(racket.usualSetup?.notes ?? "") && (
+                  <div className="flex gap-3">
+                    <span className="w-16 shrink-0 text-muted-foreground">Notas</span>
+                    <span className="min-w-0 break-words">
+                      {pending.spec.notes || "Sin notas"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <AlertDialogFooter>
+                <Button
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => finish(pending, false)}
+                >
+                  {saving && confirmAction === "create" ? "Creando pedido…" : "Solo crear pedido"}
+                </Button>
+                <Button disabled={saving} onClick={() => finish(pending, true)}>
+                  {saving && confirmAction === "update"
+                    ? confirmStep === "setup"
+                      ? "Actualizando…"
+                      : "Creando pedido…"
+                    : "Actualizar y crear"}
+                </Button>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
