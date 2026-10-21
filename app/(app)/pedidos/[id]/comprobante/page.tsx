@@ -16,7 +16,7 @@ import { subscribeOrderPayments } from "@/lib/firestore/payments";
 import { formatFull, money } from "@/lib/format";
 import { balanceOf } from "@/lib/payments";
 import { isStaff } from "@/lib/roles";
-import { normalizePhoneAR } from "@/lib/whatsapp";
+import { normalizePhoneAR, orderMessage } from "@/lib/whatsapp";
 import { APP_NAME } from "@/lib/brand";
 import type { Order, Organization, Payment } from "@/types";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -116,7 +116,7 @@ export default function ComprobantePage() {
     setBusy(true);
     try {
       const file = await getFile();
-      const text = `Hola ${order.customerName}! Te dejo el comprobante de tu pedido #${order.number}.`;
+      const text = orderMessage("comprobante", order, shop);
 
       // Celular: abre el menú de compartir con la imagen, y desde ahí se elige WhatsApp
       if (navigator.canShare?.({ files: [file] })) {

@@ -59,6 +59,9 @@ export interface Organization {
   name: string;
 }
 
+// Etapas de los mensajes de WhatsApp que se envían al cliente
+export type MessageKey = "recibido" | "listo" | "recordatorio" | "reencordado" | "comprobante";
+
 export interface Shop {
   id: string;
   orgId: string;
@@ -68,6 +71,7 @@ export interface Shop {
   active?: boolean;
   laborPrices?: Partial<Record<Sport, number>>;
   paymentMethods?: string[];
+  messages?: Partial<Record<MessageKey, string>>; // plantillas propias; las que falren usan el default
 }
 
 export interface Payment {

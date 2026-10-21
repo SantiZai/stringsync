@@ -18,7 +18,7 @@ import { DEFAULT_TENSION_UNIT } from "@/lib/constants";
 import { formatDay, money, parseAmount } from "@/lib/format";
 import { stringLabel, formatStock, matchCatalogString, stringLabelWithColor, setupSummary } from "@/lib/strings";
 import { fold, digitsOnly, initials } from "@/lib/text";
-import { messages, whatsappLink } from "@/lib/whatsapp";
+import { orderMessage, whatsappLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import type { Racket, StringingSpec } from "@/types";
 
@@ -269,7 +269,7 @@ export function NewOrderForm() {
     setSaving(true);
     try {
       const number = await createOrder(appUser, shop.id, data);
-      const link = whatsappLink(customer.phone, messages.recibido({ ...data, number }, shop.address ? shop.address : "el local"));
+      const link = whatsappLink(customer.phone, orderMessage("recibido", { ...data, number }, shop));
       toast.success(`Pedido #${number} creado`, {
         duration: 10000,
         action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },

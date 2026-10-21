@@ -9,6 +9,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { useShop } from "@/hooks/use-shop";
 import { PageHeader } from "@/components/page-header";
 import { PaymentMethodsCard } from "@/components/settings/payment-methods-card";
+import { MessagesCard } from "@/components/settings/messages-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,9 +113,10 @@ export default function ConfiguracionPage() {
               </div>
             </div>
             <PaymentMethodsCard />
+            <MessagesCard />
           </div>
         ) : (
-          <BranchRequired action="editar los precios de mano de obra y los medios de pago" />
+          <BranchRequired action="editar la mano de obra, los medios de pago o los mensajes" />
         )
       }
     </div>

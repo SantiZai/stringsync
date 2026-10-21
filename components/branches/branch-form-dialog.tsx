@@ -115,7 +115,7 @@ export function BranchFormDialog({ open, onOpenChange, shop, shops }: Props) {
 
           {!shop && shops.length > 0 && (
             <div className="space-y-2">
-              <Label>Copiar precios y medios de pago de</Label>
+              <Label>Copiar configuración de</Label>
               <Select value={copyId} onValueChange={(v) => v && setCopyId(v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue>{copyFrom?.name ?? "No copiar (empezar vacía)"}</SelectValue>

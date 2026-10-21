@@ -11,7 +11,7 @@ import { updateOrderStatus } from "@/lib/firestore/orders";
 import { formatDay, money } from "@/lib/format";
 import { advanceLabel, isOverdue, nextStatus, statusMeta } from "@/lib/order-status";
 import { balanceOf } from "@/lib/payments";
-import { messages, whatsappLink } from "@/lib/whatsapp";
+import { orderMessage, whatsappLink } from "@/lib/whatsapp";
 import type { Order } from "@/types";
 import { PaymentDialog } from "@/components/payments/payment-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +25,6 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
 
   const next = nextStatus[order.status];
   const overdue = isOverdue(order);
-  const shopName = shop?.name ?? "el local";
-  const shopAddress = shop?.address ?? "el local";
   const balance = balanceOf(order);
   const canManage = isStaff(appUser?.role);
 
@@ -36,7 +34,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
     try {
       await updateOrderStatus(order, next, appUser.uid);
       if (next === "listo") {
-        const link = whatsappLink(order.customerPhone, messages.listo(order, shopAddress));
+        const link = whatsappLink(order.customerPhone, orderMessage("listo", order, shop));
         toast.success(`Pedido #${order.number} lista`, {
           duration: 10000,
           action: { label: "Avisar por WhatsApp", onClick: () => window.open(link, "_blank") },
@@ -90,7 +88,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void 
         )}
         {order.status === "listo" && isStaff(appUser?.role) && (
           <a
-            href={whatsappLink(order.customerPhone, messages.listo(order, shopAddress))}
+            href={whatsappLink(order.customerPhone, orderMessage("listo", order, shop))}
             target="_blank"
             rel="noreferrer"
             aria-label="Avisar por WhatsApp"

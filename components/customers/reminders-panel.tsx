@@ -11,7 +11,7 @@ import { markReminderSent } from "@/lib/firestore/rackets";
 import { formatDay } from "@/lib/format";
 import type { Reminder } from "@/lib/reminders";
 import { initials } from "@/lib/text";
-import { messages, whatsappLink } from "@/lib/whatsapp";
+import { reencordadoMessage, whatsappLink } from "@/lib/whatsapp";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -84,10 +84,11 @@ export function RemindersPanel({ reminders, weeks, onWeeksChange }: Props) {
               shop?.name ?? shops.find((s) => s.id === racket.lastShopId)?.name ?? "el local";
             const link = whatsappLink(
               customer.phone,
-              messages.reencordado(
+              reencordadoMessage(
                 { customerName: customer.name, racketLabel: label },
                 org ? org.name : shopName,
-                w
+                w,
+                shop
               )
             );
 

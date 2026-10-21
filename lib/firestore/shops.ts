@@ -9,7 +9,7 @@ export interface ShopInput {
   phone: string;
 }
 
-// Puede copiar precios de mano de obra y medios de pago de otra sucursal
+// Puede copiar precios, medios de pago y mensajes de otra sucursal
 export async function createShop(user: AppUser, input: ShopInput, copyFrom?: Shop | null) {
   const ref = await addDoc(
     collection(db, "shops"),
@@ -22,6 +22,7 @@ export async function createShop(user: AppUser, input: ShopInput, copyFrom?: Sho
       createdAt: Timestamp.now(),
       laborPrices: copyFrom?.laborPrices,
       paymentMethods: copyFrom?.paymentMethods,
+      messages: copyFrom?.messages,
     })
   );
   return ref.id;

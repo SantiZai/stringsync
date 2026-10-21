@@ -11,7 +11,7 @@ import { useShopById } from "@/hooks/use-shop";
 import { cancelOrder } from "@/lib/firestore/orders";
 import { formatDateTime, formatDay, money } from "@/lib/format";
 import { statusMeta } from "@/lib/order-status";
-import { messages, whatsappLink } from "@/lib/whatsapp";
+import { orderMessage, whatsappLink } from "@/lib/whatsapp";
 import { subscribeOrderPayments } from "@/lib/firestore/payments";
 import { balanceOf } from "@/lib/payments";
 import { PaymentDialog } from "@/components/payments/payment-dialog";
@@ -94,7 +94,6 @@ export function OrderDetailDialog({
   }
 
   const shopName = shop?.name ?? "el local";
-  const shopAddress = shop?.address ?? "el local";
   const s = order?.spec;
 
   return (
@@ -184,9 +183,7 @@ export function OrderDetailDialog({
                   <a
                     href={whatsappLink(
                       order.customerPhone,
-                      order.status === "listo"
-                        ? messages.listo(order, shopAddress)
-                        : messages.recibido(order, shopAddress)
+                      orderMessage(order.status === "listo" ? "listo" : "recibido", order, shop)
                     )}
                     target="_blank"
                     rel="noreferrer"
