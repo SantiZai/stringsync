@@ -12,7 +12,8 @@ export class HttpError extends Error {
 
 export function errorResponse(e: unknown) {
   if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
-  console.error("[api] error interno:", e);
+  const code = (e as { code?: string }).code;
+  console.error("[api] error interno:", code ? `${code} — ${e}` : e);
   return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }
 
@@ -37,7 +38,19 @@ export async function requireManager(req: Request): Promise<Actor> {
     throw new HttpError(401, "Sesión inválida. Volvé a ingresar");
   }
 
-  const data = (await adminDb.doc(`users/${uid}`).get()).data();
+  // Si el Admin SDK no puede leer Firestore, casi siempre es por credenciales
+  // mal configuradas en el servidor (FIREBASE_ADMIN_*), así que lo decimos claro.
+  const data = await adminDb
+    .doc(`users/${uid}`)
+    .get()
+    .then((snap) => snap.data())
+    .catch((e) => {
+      console.error("[auth] No se pudo leer el perfil en Firestore:", e);
+      throw new HttpError(
+        500,
+        "No se pudo verificar tu usuario en el servidor. Revisá las variables FIREBASE_ADMIN_* en Vercel."
+      );
+    });
   if (
     !data ||
     !data.orgId ||

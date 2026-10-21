@@ -36,6 +36,10 @@ function authErrorMessage(error: unknown): string {
         return "Email o contraseña incorrectos";
       case "auth/too-many-requests":
         return "Demasiados intentos. Probá de nuevo en unos minutos";
+      case "auth/user-disabled":
+        return "Tu cuenta está desactivada. Consultá con el administrador";
+      case "auth/operation-not-allowed":
+        return "El ingreso con email y contraseña está desactivado en el proyecto de Firebase";
       case "auth/network-request-failed":
         return "Sin conexión. Revisá tu internet";
     }

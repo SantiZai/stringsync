@@ -44,6 +44,24 @@ async function assertShop(actor: Actor, targetShopId: string) {
   if (shop.active === false) throw new HttpError(400, "La sucursal está inactiva");
 }
 
+// Errores del Admin SDK → respuestas que se puedan entender (y no un 500 misterioso)
+function authHttpError(e: unknown): never {
+  const code = (e as { code?: string }).code;
+  if (code === "auth/insufficient-permission") {
+    throw new HttpError(
+      500,
+      "Firebase rechazó las credenciales del servidor. Revisá las variables FIREBASE_ADMIN_* en Vercel."
+    );
+  }
+  if (code === "auth/user-not-found") {
+    throw new HttpError(404, "La cuenta de acceso de este usuario ya no existe. Eliminalo del equipo y volvé a crearlo.");
+  }
+  if (code === "auth/email-already-exists") throw new HttpError(409, "Ya existe una cuenta con ese email");
+  if (code === "auth/uid-already-exists") throw new HttpError(409, "Ya existe una cuenta para este usuario");
+  if (code === "auth/invalid-password" || code === "auth/invalid-email") throw new HttpError(400, "Datos de la cuenta inválidos");
+  throw e;
+}
+
 // Solo se puede operar sobre usuarios de la misma organización, que no sean admin ni uno mismo
 async function loadTarget(actor: Actor, targetUid: string) {
   if (targetUid === actor.uid) throw new HttpError(400, "No podés modificar tu propia cuenta desde acá");
@@ -67,15 +85,7 @@ export async function POST(req: Request) {
     assertRole(actor, role);
     await assertShop(actor, shopId);
 
-    let created;
-    try {
-      created = await adminAuth.createUser({ email, password, displayName: name });
-    } catch (e) {
-      if ((e as { code?: string }).code === "auth/email-already-exists") {
-        throw new HttpError(409, "Ya existe una cuenta con ese email");
-      }
-      throw e;
-    }
+    const created = await adminAuth.createUser({ email, password, displayName: name }).catch(authHttpError);
 
     try {
       await adminDb.doc(`users/${created.uid}`).set({
@@ -90,7 +100,7 @@ export async function POST(req: Request) {
         createdBy: actor.uid,
       });
     } catch (e) {
-      await adminAuth.deleteUser(created.uid); // no dejamos una cuenta sin perfil
+      await adminAuth.deleteUser(created.uid).catch(() => null); // no dejamos una cuenta sin perfil
       throw e;
     }
 
@@ -111,15 +121,33 @@ export async function PATCH(req: Request) {
     if (body.action === "update") {
       assertRole(actor, body.role);
       await assertShop(actor, body.shopId);
+      await adminAuth.updateUser(body.uid, { displayName: body.name }).catch(authHttpError);
       await ref.update({ name: body.name, role: body.role, shopId: body.shopId });
-      await adminAuth.updateUser(body.uid, { displayName: body.name });
     } else if (body.action === "set_active") {
-      await adminAuth.updateUser(body.uid, { disabled: !body.active });
-      if (!body.active) await adminAuth.revokeRefreshTokens(body.uid); // corta sus sesiones abiertas
+      await adminAuth.updateUser(body.uid, { disabled: !body.active }).catch(authHttpError);
+      if (!body.active) await adminAuth.revokeRefreshTokens(body.uid).catch(() => null); // corta sus sesiones abiertas
       await ref.update({ active: body.active });
     } else {
-      await adminAuth.updateUser(body.uid, { password: body.password });
-      await adminAuth.revokeRefreshTokens(body.uid);
+      try {
+        await adminAuth.updateUser(body.uid, { password: body.password }); // reset_password
+      } catch (e) {
+        if ((e as { code?: string }).code !== "auth/user-not-found") authHttpError(e);
+        // El perfil existe pero la cuenta de Auth no (p. ej. creada solo en Firestore):
+        // la recreamos con el mismo uid para que el resto de los datos sigan valiendo.
+        const profile = (await ref.get()).data();
+        if (!profile?.email) {
+          throw new HttpError(404, "Este usuario no tiene cuenta de acceso. Eliminalo del equipo y volvé a crearlo.");
+        }
+        await adminAuth
+          .createUser({
+            uid: body.uid,
+            email: profile.email,
+            password: body.password,
+            displayName: profile.name ?? "",
+          })
+          .catch(authHttpError);
+      }
+      await adminAuth.revokeRefreshTokens(body.uid).catch(() => null);
       await ref.update({ mustChangePassword: true });
     }
 
@@ -142,7 +170,7 @@ export async function DELETE(req: Request) {
       await adminAuth.deleteUser(parsed.data.uid);
     } catch (e) {
       // Si la cuenta de Auth ya no existe, igual se borra el perfil
-      if ((e as { code?: string }).code !== "auth/user-not-found") throw e;
+      if ((e as { code?: string }).code !== "auth/user-not-found") authHttpError(e);
     }
     await adminAuth.revokeRefreshTokens(parsed.data.uid).catch(() => null);
     await ref.delete();
