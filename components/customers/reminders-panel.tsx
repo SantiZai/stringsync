@@ -108,15 +108,17 @@ export function RemindersPanel({ reminders, weeks, onWeeksChange }: Props) {
                       {customer.name}
                     </Link>
                     <p className="truncate text-sm text-muted-foreground">
-                      {label} · último encordado hace {w} semanas (
-                      {formatDay(racket.lastStrungAt!.toDate())})
+                      {label} · último encordado el {formatDay(racket.lastStrungAt!.toDate())}
                     </p>
                   </div>
-                  {lastSent && (
-                    <Badge variant="outline" className="shrink-0">
-                      Avisado el {formatDay(lastSent)}
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <Badge>
+                      {w} {w === 1 ? "semana" : "semanas"}
                     </Badge>
-                  )}
+                    {lastSent && (
+                      <Badge variant="outline">Avisado el {formatDay(lastSent)}</Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex gap-2">

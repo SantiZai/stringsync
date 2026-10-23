@@ -89,16 +89,22 @@ const emptySpec: SpecForm = {
 // Compara la config del pedido con la habitual de la raqueta. Ignora el
 // proveedor y la cuerda del catálogo: pickRacket los deriva del match con
 // el catálogo (no se guardan tal cual), así no preguntamos por cambios que
-// el usuario no hizo.
+// el usuario no hizo. Normaliza los campos opcionales porque los setups
+// guardados desde "Editar raqueta" no traen prestretch (undefined = sin
+// pre-estirar) y los viejos pueden traer sin unidad ni sin campos cross
+// (ahí la cruzada se repetía con la principal, ver StringingSpec).
 function setupDiffers(a: StringingSpec, b: StringingSpec) {
   const t = (s?: string) => fold((s ?? "").trim());
+  const unit = (s: StringingSpec) => s.tensionUnit ?? DEFAULT_TENSION_UNIT;
+  const cross = (s: StringingSpec) => s.crossString ?? s.mainString;
+  const crossT = (s: StringingSpec) => s.crossTension ?? s.mainTension;
   return (
     t(a.mainString) !== t(b.mainString) ||
-    t(a.crossString) !== t(b.crossString) ||
+    t(cross(a)) !== t(cross(b)) ||
     a.mainTension !== b.mainTension ||
-    a.crossTension !== b.crossTension ||
-    a.tensionUnit !== b.tensionUnit ||
-    a.prestretch !== b.prestretch ||
+    crossT(a) !== crossT(b) ||
+    unit(a) !== unit(b) ||
+    Boolean(a.prestretch) !== Boolean(b.prestretch) ||
     t(a.notes) !== t(b.notes)
   );
 }
@@ -408,9 +414,9 @@ export function NewOrderForm() {
       promisedDate: promised,
     };
 
-    // Si la config del pedido difiere de la habitual de la raqueta (o la
-    // raqueta todavía no tiene), recién ahí, al confirmar, preguntamos.
-    if (!racket.usualSetup || setupDiffers(spec, racket.usualSetup)) {
+    // Si la config del pedido difiere de la habitual de la raqueta, recién
+    // ahí, al confirmar, preguntamos. Sin setup previo no preguntamos.
+    if (racket.usualSetup && setupDiffers(spec, racket.usualSetup)) {
       setPending(data);
       return;
     }
@@ -878,31 +884,26 @@ export function NewOrderForm() {
       </Dialog>
 
       {/* ¿Actualizar la configuración habitual de la raqueta? Solo aparece
-          al confirmar el pedido y solo si la config cambió (o no existía). */}
+          al confirmar el pedido y solo si la config cambió. */}
       <AlertDialog open={!!pending} onOpenChange={changeConfirm}>
         <AlertDialogContent>
           {pending && racket && (
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {racket.usualSetup
-                    ? `¿Actualizar la configuración de ${racket.brand} ${racket.model}?`
-                    : `¿Guardar la configuración de ${racket.brand} ${racket.model}?`}
+                  ¿Actualizar la configuración de {racket.brand} {racket.model}?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {racket.usualSetup
-                    ? "Cambiaste la configuración con la que se autocompletó el pedido. ¿Querés guardarla como la habitual de esta raqueta?"
-                    : "Esta raqueta todavía no tiene configuración habitual. ¿Querés guardar la de este pedido para que se autocomplete la próxima vez?"}
+                  Cambiaste la configuración con la que se autocompletó el pedido. ¿Querés
+                  guardarla como la habitual de esta raqueta?
                 </AlertDialogDescription>
               </AlertDialogHeader>
 
               <div className="space-y-1.5 rounded-lg border bg-muted/50 p-3 text-sm">
-                {racket.usualSetup && (
-                  <div className="flex gap-3">
-                    <span className="w-16 shrink-0 text-muted-foreground">Actual</span>
-                    <span className="min-w-0 break-words">{setupSummary(racket.usualSetup)}</span>
-                  </div>
-                )}
+                <div className="flex gap-3">
+                  <span className="w-16 shrink-0 text-muted-foreground">Actual</span>
+                  <span className="min-w-0 break-words">{setupSummary(racket.usualSetup!)}</span>
+                </div>
                 <div className="flex gap-3">
                   <span className="w-16 shrink-0 text-muted-foreground">Nueva</span>
                   <span className="min-w-0 break-words font-medium">
